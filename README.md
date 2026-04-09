@@ -5,9 +5,9 @@ ts_agent/
 ├── .gitignore
 │
 ├── datasets/
-│   ├── classification/
-│   ├── prediction/
-│   └── anomaly/
+│   ├── classification/<dataset_name>
+│   ├── prediction/<dataset_name>
+│   └── anomaly/<dataset_name>
 │
 ├── configs/
 │   ├── defaults.yaml
@@ -48,10 +48,11 @@ ts_agent/
 │       └── ablations.yaml
 │
 ├── scripts/
+│   ├── run_channel_selector.py
+│   ├── build_memory.py
 │   ├── run_pipeline.py
 │   ├── run_agent.py
 │   ├── run_ablation.py
-│   ├── build_memory.py
 │   ├── evaluate_pipeline.py
 │   └── evaluate_agent.py
 │
@@ -230,7 +231,7 @@ ts_agent/
 │
 └── outputs/
     ├── memory/
-    │   └── <experiment_name_or_dataset_name>/
+    │   └── <dataset_name>_<experiment_name>/
     │       ├── selected_channels.json
     │       ├── memory_bank.jsonl / parquet / pkl
     │       ├── index_ts.pkl
