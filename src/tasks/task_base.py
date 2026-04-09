@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import logging
 from abc import ABC
 from typing import Any, Optional
 
+from core.exceptions import ConfigError, ValidationError
 from core.interfaces import BaseTaskInterface
 from core.schemas import QueryInstance, TaskSpec, TimeSeriesSample
+from ts_logging.event_log import EventLogger
 
 
 class BaseTask(BaseTaskInterface, ABC):
@@ -36,6 +39,7 @@ class BaseTask(BaseTaskInterface, ABC):
         * get_prompt_target(...)
         * parse_output(...)
     - `get_label_space()` already has a safe default from task_spec.
+    - Loggers are not created here; they are injected through runtime context.
     """
 
     def __init__(
@@ -46,6 +50,58 @@ class BaseTask(BaseTaskInterface, ABC):
     ) -> None:
         super().__init__(task_spec=task_spec, name=name, config=config)
 
+    # ------------------------------------------------------------------
+    # Context / logging helpers
+    # ------------------------------------------------------------------
+    def normalize_context(self, context: Optional[dict[str, Any]] = None) -> dict[str, Any]:
+        if context is None:
+            return {}
+        if not isinstance(context, dict):
+            raise TypeError(f"{self.name}: context must be a dict or None.")
+        return context
+
+    def get_logger(self, context: Optional[dict[str, Any]] = None) -> Optional[logging.Logger]:
+        if context is None:
+            return None
+        logger = context.get("logger")
+        if logger is not None and not isinstance(logger, logging.Logger):
+            raise TypeError(f"{self.name}: context['logger'] must be a logging.Logger.")
+        return logger
+
+    def get_event_logger(self, context: Optional[dict[str, Any]] = None) -> Optional[EventLogger]:
+        if context is None:
+            return None
+        event_logger = context.get("event_logger")
+        if event_logger is not None and not isinstance(event_logger, EventLogger):
+            raise TypeError(
+                f"{self.name}: context['event_logger'] must be an EventLogger."
+            )
+        return event_logger
+
+    def log_info(self, context: Optional[dict[str, Any]], message: str, *args: Any) -> None:
+        logger = self.get_logger(context)
+        if logger is not None:
+            logger.info(message, *args)
+
+    def log_warning(self, context: Optional[dict[str, Any]], message: str, *args: Any) -> None:
+        logger = self.get_logger(context)
+        if logger is not None:
+            logger.warning(message, *args)
+
+    def log_event(
+        self,
+        context: Optional[dict[str, Any]],
+        event_type: str,
+        payload: Optional[dict[str, Any]] = None,
+        **kwargs: Any,
+    ) -> None:
+        event_logger = self.get_event_logger(context)
+        if event_logger is not None:
+            event_logger.log_event(event_type=event_type, payload=payload, **kwargs)
+
+    # ------------------------------------------------------------------
+    # Validation / config helpers
+    # ------------------------------------------------------------------
     def validate_sample(self, sample: TimeSeriesSample) -> None:
         """
         Validate that the incoming object is a legal task input.
@@ -54,7 +110,7 @@ class BaseTask(BaseTaskInterface, ABC):
         (for example, anomaly-window tasks may require window metadata).
         """
         if not isinstance(sample, TimeSeriesSample):
-            raise TypeError(
+            raise ValidationError(
                 f"{self.name}: sample must be a TimeSeriesSample, "
                 f"but got {type(sample).__name__}."
             )
@@ -99,10 +155,17 @@ class BaseTask(BaseTaskInterface, ABC):
         Retrieve a required config value, raising an error if missing.
         """
         if key not in self.config:
-            raise KeyError(f"{self.name}: required config key '{key}' is missing.")
+            raise ConfigError(f"{self.name}: required config key '{key}' is missing.")
         return self.config[key]
 
-    def build_query(self, sample: TimeSeriesSample) -> QueryInstance:
+    # ------------------------------------------------------------------
+    # Core task methods
+    # ------------------------------------------------------------------
+    def build_query(
+        self,
+        sample: TimeSeriesSample,
+        context: Optional[dict[str, Any]] = None,
+    ) -> QueryInstance:
         """
         Default query builder.
 
@@ -116,15 +179,36 @@ class BaseTask(BaseTaskInterface, ABC):
         - inject anomaly-specific metadata
         - customize query_id generation
         """
+        context = self.normalize_context(context)
         self.validate_sample(sample)
 
-        return QueryInstance(
+        query = QueryInstance(
             query_id=self._build_default_query_id(sample),
             sample=sample,
             task_spec=self.task_spec,
             channels=[],
             metadata=self._build_default_query_metadata(sample),
         )
+
+        self.log_info(
+            context,
+            "Task '%s': built query_id=%s for sample_id=%s",
+            self.name,
+            query.query_id,
+            sample.sample_id,
+        )
+        self.log_event(
+            context,
+            event_type="task_build_query",
+            payload={
+                "task_name": self.name,
+                "task_type": self.task_spec.task_type.value,
+                "sample_id": sample.sample_id,
+                "query_id": query.query_id,
+            },
+        )
+
+        return query
 
     def get_prompt_target(self) -> str:
         """
@@ -143,7 +227,12 @@ class BaseTask(BaseTaskInterface, ABC):
             return "determine whether the window is anomalous"
         return "make a prediction for the input time series"
 
-    def parse_output(self, raw_output: Any, sample: TimeSeriesSample) -> Any:
+    def parse_output(
+        self,
+        raw_output: Any,
+        sample: TimeSeriesSample,
+        context: Optional[dict[str, Any]] = None,
+    ) -> Any:
         """
         Default raw output parser.
 
@@ -156,7 +245,19 @@ class BaseTask(BaseTaskInterface, ABC):
         - anomaly decisions
         - task-specific prediction records
         """
+        context = self.normalize_context(context)
         self.validate_sample(sample)
+
+        self.log_event(
+            context,
+            event_type="task_parse_output",
+            payload={
+                "task_name": self.name,
+                "task_type": self.task_spec.task_type.value,
+                "sample_id": sample.sample_id,
+            },
+        )
+
         return raw_output
 
     def normalize_label(self, label: Any) -> Any:
@@ -176,7 +277,7 @@ class BaseTask(BaseTaskInterface, ABC):
         if isinstance(label, str):
             normalized = label.strip()
             if normalized not in self.task_spec.label_space:
-                raise ValueError(
+                raise ValidationError(
                     f"{self.name}: label '{normalized}' is not in label_space "
                     f"{self.task_spec.label_space}."
                 )
@@ -184,6 +285,9 @@ class BaseTask(BaseTaskInterface, ABC):
 
         return label
 
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
     def _build_default_query_id(self, sample: TimeSeriesSample) -> str:
         """
         Internal helper for stable default query id generation.

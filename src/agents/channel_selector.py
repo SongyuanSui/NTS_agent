@@ -11,10 +11,12 @@ import numpy as np
 
 from agents.agent_base import BaseAgent
 from agents.schemas import ChannelSelectorInput, ChannelSelectorOutput
+from core.registry import AGENT_REGISTRY
 from core.schemas import TimeSeriesSample
 from utils.math_utils import cosine_sim, euclidean_sq, zscore_list
 
 
+@AGENT_REGISTRY.decorator("channel_selector")
 class ChannelSelectorAgent(BaseAgent):
     """
     Dataset-level channel selector.

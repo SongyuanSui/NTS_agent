@@ -14,10 +14,12 @@ from agents.schemas import (
     RetrievalInput,
     RetrievalOutput,
 )
+from core.registry import PIPELINE_REGISTRY
 from core.schemas import PipelineResult, PredictionRecord, QueryInstance, TimeSeriesSample
 from pipelines.pipeline_base import BasePipeline
 
 
+@PIPELINE_REGISTRY.decorator("inference_pipeline")
 class InferencePipeline(BasePipeline):
     """
     End-to-end inference pipeline for the current agentic framework.
@@ -81,7 +83,7 @@ class InferencePipeline(BasePipeline):
         # ------------------------------------------------------------------
         # Step 1: build task-specific query
         # ------------------------------------------------------------------
-        query = task.build_query(sample)
+        query = task.build_query(sample, context=context)
         if not isinstance(query, QueryInstance):
             raise TypeError(
                 f"{self.name}: task.build_query(...) must return QueryInstance, "
@@ -370,7 +372,7 @@ class InferencePipeline(BasePipeline):
         # ------------------------------------------------------------------
         # Step 6: task-level output parsing and final packaging
         # ------------------------------------------------------------------
-        parsed_prediction = task.parse_output(aggregation_output, sample)
+        parsed_prediction = task.parse_output(aggregation_output, sample, context=context)
 
         prediction_record = PredictionRecord(
             sample_id=sample.sample_id,

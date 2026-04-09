@@ -4,10 +4,12 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
+from core.registry import TASK_REGISTRY
 from core.schemas import QueryInstance, TimeSeriesSample
 from tasks.task_base import BaseTask
 
 
+@TASK_REGISTRY.decorator("classification")
 class ClassificationTask(BaseTask):
     """
     Concrete task implementation for time series classification.
@@ -38,13 +40,18 @@ class ClassificationTask(BaseTask):
                 f"but got '{self.task_spec.task_type.value}'."
             )
 
-    def build_query(self, sample: TimeSeriesSample) -> QueryInstance:
+    def build_query(
+        self,
+        sample: TimeSeriesSample,
+        context: Optional[dict[str, Any]] = None,
+    ) -> QueryInstance:
         """
         Build a classification query from a raw sample.
 
         For classification, the default behavior is already close to what we want:
         one sample -> one query. We just enrich metadata a bit.
         """
+        context = self.normalize_context(context)
         self.validate_sample(sample)
 
         metadata = self._build_default_query_metadata(sample)
@@ -55,13 +62,34 @@ class ClassificationTask(BaseTask):
             }
         )
 
-        return QueryInstance(
+        query = QueryInstance(
             query_id=self._build_default_query_id(sample),
             sample=sample,
             task_spec=self.task_spec,
             channels=[],
             metadata=metadata,
         )
+
+        self.log_info(
+            context,
+            "Task '%s': built classification query_id=%s for sample_id=%s",
+            self.name,
+            query.query_id,
+            sample.sample_id,
+        )
+        self.log_event(
+            context,
+            event_type="task_build_query",
+            payload={
+                "task_name": self.name,
+                "task_type": self.task_spec.task_type.value,
+                "sample_id": sample.sample_id,
+                "query_id": query.query_id,
+                "task_family": "classification",
+            },
+        )
+
+        return query
 
     def get_prompt_target(self) -> str:
         """
@@ -76,7 +104,12 @@ class ClassificationTask(BaseTask):
 
         return "predict the class label of the input time series"
 
-    def parse_output(self, raw_output: Any, sample: TimeSeriesSample) -> Any:
+    def parse_output(
+        self,
+        raw_output: Any,
+        sample: TimeSeriesSample,
+        context: Optional[dict[str, Any]] = None,
+    ) -> Any:
         """
         Parse raw downstream output into a normalized classification label.
 
@@ -89,6 +122,7 @@ class ClassificationTask(BaseTask):
         More sophisticated parsing (e.g. full LLM JSON parsing) can later be
         implemented either here or in tasks/output_parsers.py.
         """
+        context = self.normalize_context(context)
         self.validate_sample(sample)
 
         candidate = raw_output
@@ -102,4 +136,17 @@ class ClassificationTask(BaseTask):
         elif hasattr(raw_output, "prediction"):
             candidate = getattr(raw_output, "prediction")
 
-        return self.normalize_label(candidate)
+        normalized = self.normalize_label(candidate)
+
+        self.log_event(
+            context,
+            event_type="task_parse_output",
+            payload={
+                "task_name": self.name,
+                "task_type": self.task_spec.task_type.value,
+                "sample_id": sample.sample_id,
+                "normalized_prediction": normalized,
+            },
+        )
+
+        return normalized
