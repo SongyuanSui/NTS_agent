@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Mapping, Optional, Sequence
+from typing import Any, Optional
 
 import numpy as np
 
@@ -91,15 +91,18 @@ class TaskSpec:
         - "channel"
     """
 
-    task_type: TaskType
+    task_type: TaskType | str
     label_space: LabelSpace = field(default_factory=list)
     granularity: str = "sample"
     description: str = ""
     metadata: Metadata = field(default_factory=dict)
 
     def __post_init__(self) -> None:
+        if isinstance(self.task_type, str):
+            self.task_type = TaskType(self.task_type)
+
         if not isinstance(self.task_type, TaskType):
-            raise TypeError("task_type must be an instance of TaskType.")
+            raise TypeError("task_type must be an instance of TaskType or a valid string.")
 
         if not isinstance(self.label_space, list):
             self.label_space = list(self.label_space)
@@ -154,7 +157,8 @@ class ChannelData:
         if not isinstance(self.sample_id, str) or not self.sample_id:
             raise ValueError("sample_id must be a non-empty string.")
 
-        if not isinstance(self.channel_id, int) or self.channel_id < 0:
+        self.channel_id = int(self.channel_id)
+        if self.channel_id < 0:
             raise ValueError("channel_id must be a non-negative integer.")
 
         self.values = np.asarray(self.values, dtype=float)
@@ -165,8 +169,10 @@ class ChannelData:
         if self.values.shape[0] <= 0:
             raise ValueError("ChannelData.values must contain at least one element.")
 
-        if self.score is not None and not np.isfinite(self.score):
-            raise ValueError("score must be finite if provided.")
+        if self.score is not None:
+            self.score = float(self.score)
+            if not np.isfinite(self.score):
+                raise ValueError("score must be finite if provided.")
 
         if not isinstance(self.metadata, dict):
             self.metadata = dict(self.metadata)
@@ -236,13 +242,18 @@ class RepresentationRecord:
     - Statistic view: dict[str, float] or np.ndarray
     """
 
-    rep_type: RepresentationType
+    rep_type: RepresentationType | str
     payload: Any
     metadata: Metadata = field(default_factory=dict)
 
     def __post_init__(self) -> None:
+        if isinstance(self.rep_type, str):
+            self.rep_type = RepresentationType(self.rep_type)
+
         if not isinstance(self.rep_type, RepresentationType):
-            raise TypeError("rep_type must be an instance of RepresentationType.")
+            raise TypeError(
+                "rep_type must be an instance of RepresentationType or a valid string."
+            )
 
         if not isinstance(self.metadata, dict):
             self.metadata = dict(self.metadata)
@@ -260,7 +271,7 @@ class PredictionRecord:
     """
 
     sample_id: str
-    task_type: TaskType
+    task_type: TaskType | str
     prediction: Any
     confidence: Optional[float] = None
     reasoning: Optional[str] = None
@@ -270,10 +281,14 @@ class PredictionRecord:
         if not isinstance(self.sample_id, str) or not self.sample_id:
             raise ValueError("sample_id must be a non-empty string.")
 
+        if isinstance(self.task_type, str):
+            self.task_type = TaskType(self.task_type)
+
         if not isinstance(self.task_type, TaskType):
-            raise TypeError("task_type must be an instance of TaskType.")
+            raise TypeError("task_type must be an instance of TaskType or a valid string.")
 
         if self.confidence is not None:
+            self.confidence = float(self.confidence)
             if not np.isfinite(self.confidence):
                 raise ValueError("confidence must be finite if provided.")
             if self.confidence < 0.0 or self.confidence > 1.0:
