@@ -20,11 +20,15 @@ ts_agent/
 │   │   ├── prediction.yaml
 │   │   └── anomaly_window.yaml
 │   ├── agents/
+│   │   ├── channel_selector.yaml
 │   │   ├── channel_decomposer.yaml
 │   │   ├── representation_agent_ts.yaml
 │   │   ├── representation_agent_summary.yaml
 │   │   ├── representation_agent_statistic.yaml
-│   │   ├── retrieval_agent.yaml
+│   │   ├── retrieval_agent_ts.yaml
+│   │   ├── retrieval_agent_text.yaml
+│   │   ├── retrieval_agent_stat.yaml
+│   │   ├── retrieval_agent_hybrid.yaml
 │   │   ├── reasoner_agent.yaml
 │   │   └── aggregation_agent.yaml
 │   ├── retrieval/
@@ -131,6 +135,7 @@ ts_agent/
 │   │   ├── __init__.py
 │   │   ├── prompt_base.py
 │   │   ├── builders.py
+│   │   ├── formatters.py
 │   │   └── templates/
 │   │       ├── summary.py
 │   │       ├── classification.py
@@ -150,6 +155,7 @@ ts_agent/
 │   │   ├── __init__.py
 │   │   ├── agent_base.py
 │   │   ├── schemas.py
+│   │   ├── channel_selector.py
 │   │   ├── channel_decomposer.py
 │   │   ├── representation_agent_ts.py
 │   │   ├── representation_agent_summary.py
@@ -159,7 +165,7 @@ ts_agent/
 │   │   ├── retrieval_agent_stat.py
 │   │   ├── retrieval_agent_hybrid.py
 │   │   ├── reasoner_agent.py
-│   │   └── aggregator_agent.py
+│   │   └── aggregation_agent.py
 │   │
 │   ├── pipelines/
 │   │   ├── __init__.py
@@ -206,6 +212,7 @@ ts_agent/
 ├── tests/
 │   ├── unit/
 │   │   ├── test_task_specs.py
+│   │   ├── test_channel_selector.py
 │   │   ├── test_channel_decomposer.py
 │   │   ├── test_representation_agent_summary.py
 │   │   ├── test_representation_agent_statistic.py
@@ -223,6 +230,12 @@ ts_agent/
 │
 └── outputs/
     ├── memory/
+    │   └── <experiment_name_or_dataset_name>/
+    │       ├── selected_channels.json
+    │       ├── memory_bank.jsonl / parquet / pkl
+    │       ├── index_ts.pkl
+    │       ├── index_text.pkl
+    │       └── index_stat.pkl
     ├── predictions/
     ├── agent_outputs/
     ├── evaluations/
