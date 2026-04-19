@@ -1,0 +1,9 @@
+{
+  "features": [
+    "0_Autocorrelation",
+    "0_Negative turning points",
+    "0_Positive turning points",
+    "0_Neighbourhood peaks",
+    "0_Zero crossing rate"
+  ]
+}

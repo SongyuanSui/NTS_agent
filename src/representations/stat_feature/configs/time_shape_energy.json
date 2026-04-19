@@ -1,0 +1,11 @@
+{
+  "features": [
+    "0_Absolute energy",
+    "0_Area under the curve",
+    "0_Entropy",
+    "0_Root mean square",
+    "0_Signal distance",
+    "0_Slope",
+    "0_Peak to peak distance"
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "features": [
+    "0_Average power",
+    "0_Centroid",
+    "0_Fundamental frequency",
+    "0_Human range energy",
+    "0_Max power spectrum",
+    "0_Maximum frequency",
+    "0_Median frequency",
+    "0_Power bandwidth",
+    "0_Spectral centroid",
+    "0_Spectral decrease",
+    "0_Spectral distance",
+    "0_Spectral entropy",
+    "0_Spectral kurtosis",
+    "0_Spectral positive turning points",
+    "0_Spectral roll-off",
+    "0_Spectral roll-on",
+    "0_Spectral skewness",
+    "0_Spectral slope",
+    "0_Spectral spread",
+    "0_Spectral variation"
+  ]
+}

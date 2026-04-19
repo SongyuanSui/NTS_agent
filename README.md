@@ -1,3 +1,7 @@
+# NTS Agent
+
+New Time Series Agent
+
 ts_agent/
 ├── README.md
 ├── pyproject.toml
@@ -111,6 +115,9 @@ ts_agent/
 │   │   └── artifacts.py
 │   │
 │   ├── representations/
+│   │   ├── stat_feature/
+│   │   │   ├── calculation.py
+│   │   │   └── selector.py 
 │   │   ├── __init__.py
 │   │   ├── rep_base.py
 │   │   ├── schemas.py

@@ -1,0 +1,134 @@
+=== Statistical Feature Names List ====
+  1. 0_Absolute energy
+  2. 0_Area under the curve
+  3. 0_Autocorrelation
+  4. 0_Average power
+  5. 0_Centroid
+  6. 0_ECDF Percentile Count_0
+  7. 0_ECDF Percentile Count_1
+  8. 0_ECDF Percentile_0
+  9. 0_ECDF Percentile_1
+ 10. 0_ECDF_0
+ 11. 0_ECDF_1
+ 12. 0_ECDF_2
+ 13. 0_ECDF_3
+ 14. 0_ECDF_4
+ 15. 0_ECDF_5
+ 16. 0_ECDF_6
+ 17. 0_ECDF_7
+ 18. 0_ECDF_8
+ 19. 0_ECDF_9
+ 20. 0_Entropy
+ 21. 0_Fundamental frequency
+ 22. 0_Histogram_0
+ 23. 0_Histogram_1
+ 24. 0_Histogram_2
+ 25. 0_Histogram_3
+ 26. 0_Histogram_4
+ 27. 0_Histogram_5
+ 28. 0_Histogram_6
+ 29. 0_Histogram_7
+ 30. 0_Histogram_8
+ 31. 0_Histogram_9
+ 32. 0_Human range energy
+ 33. 0_Interquartile range
+ 34. 0_Kurtosis
+ 35. 0_LPCC_0
+ 36. 0_LPCC_1
+ 37. 0_LPCC_10
+ 38. 0_LPCC_11
+ 39. 0_LPCC_2
+ 40. 0_LPCC_3
+ 41. 0_LPCC_4
+ 42. 0_LPCC_5
+ 43. 0_LPCC_6
+ 44. 0_LPCC_7
+ 45. 0_LPCC_8
+ 46. 0_LPCC_9
+ 47. 0_MFCC_0
+ 48. 0_MFCC_1
+ 49. 0_MFCC_10
+ 50. 0_MFCC_11
+ 51. 0_MFCC_2
+ 52. 0_MFCC_3
+ 53. 0_MFCC_4
+ 54. 0_MFCC_5
+ 55. 0_MFCC_6
+ 56. 0_MFCC_7
+ 57. 0_MFCC_8
+ 58. 0_MFCC_9
+ 59. 0_Max
+ 60. 0_Max power spectrum
+ 61. 0_Maximum frequency
+ 62. 0_Mean
+ 63. 0_Mean absolute deviation
+ 64. 0_Mean absolute diff
+ 65. 0_Mean diff
+ 66. 0_Median
+ 67. 0_Median absolute deviation
+ 68. 0_Median absolute diff
+ 69. 0_Median diff
+ 70. 0_Median frequency
+ 71. 0_Min
+ 72. 0_Negative turning points
+ 73. 0_Neighbourhood peaks
+ 74. 0_Peak to peak distance
+ 75. 0_Positive turning points
+ 76. 0_Power bandwidth
+ 77. 0_Root mean square
+ 78. 0_Signal distance
+ 79. 0_Skewness
+ 80. 0_Slope
+ 81. 0_Spectral centroid
+ 82. 0_Spectral decrease
+ 83. 0_Spectral distance
+ 84. 0_Spectral entropy
+ 85. 0_Spectral kurtosis
+ 86. 0_Spectral positive turning points
+ 87. 0_Spectral roll-off
+ 88. 0_Spectral roll-on
+ 89. 0_Spectral skewness
+ 90. 0_Spectral slope
+ 91. 0_Spectral spread
+ 92. 0_Spectral variation
+ 93. 0_Standard deviation
+ 94. 0_Sum absolute diff
+ 95. 0_Variance
+ 96. 0_Wavelet absolute mean_0
+ 97. 0_Wavelet absolute mean_1
+ 98. 0_Wavelet absolute mean_2
+ 99. 0_Wavelet absolute mean_3
+100. 0_Wavelet absolute mean_4
+101. 0_Wavelet absolute mean_5
+102. 0_Wavelet absolute mean_6
+103. 0_Wavelet absolute mean_7
+104. 0_Wavelet absolute mean_8
+105. 0_Wavelet energy_0
+106. 0_Wavelet energy_1
+107. 0_Wavelet energy_2
+108. 0_Wavelet energy_3
+109. 0_Wavelet energy_4
+110. 0_Wavelet energy_5
+111. 0_Wavelet energy_6
+112. 0_Wavelet energy_7
+113. 0_Wavelet energy_8
+114. 0_Wavelet entropy
+115. 0_Wavelet standard deviation_0
+116. 0_Wavelet standard deviation_1
+117. 0_Wavelet standard deviation_2
+118. 0_Wavelet standard deviation_3
+119. 0_Wavelet standard deviation_4
+120. 0_Wavelet standard deviation_5
+121. 0_Wavelet standard deviation_6
+122. 0_Wavelet standard deviation_7
+123. 0_Wavelet standard deviation_8
+124. 0_Wavelet variance_0
+125. 0_Wavelet variance_1
+126. 0_Wavelet variance_2
+127. 0_Wavelet variance_3
+128. 0_Wavelet variance_4
+129. 0_Wavelet variance_5
+130. 0_Wavelet variance_6
+131. 0_Wavelet variance_7
+132. 0_Wavelet variance_8
+133. 0_Zero crossing rate

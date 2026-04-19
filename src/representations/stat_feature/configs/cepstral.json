@@ -1,0 +1,28 @@
+{
+  "features": [
+    "0_LPCC_0",
+    "0_LPCC_1",
+    "0_LPCC_2",
+    "0_LPCC_3",
+    "0_LPCC_4",
+    "0_LPCC_5",
+    "0_LPCC_6",
+    "0_LPCC_7",
+    "0_LPCC_8",
+    "0_LPCC_9",
+    "0_LPCC_10",
+    "0_LPCC_11",
+    "0_MFCC_0",
+    "0_MFCC_1",
+    "0_MFCC_2",
+    "0_MFCC_3",
+    "0_MFCC_4",
+    "0_MFCC_5",
+    "0_MFCC_6",
+    "0_MFCC_7",
+    "0_MFCC_8",
+    "0_MFCC_9",
+    "0_MFCC_10",
+    "0_MFCC_11"
+  ]
+}

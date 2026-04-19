@@ -1,0 +1,20 @@
+{
+  "features": [
+    "0_Interquartile range",
+    "0_Kurtosis",
+    "0_Max",
+    "0_Mean",
+    "0_Mean absolute deviation",
+    "0_Mean absolute diff",
+    "0_Mean diff",
+    "0_Median",
+    "0_Median absolute deviation",
+    "0_Median absolute diff",
+    "0_Median diff",
+    "0_Min",
+    "0_Skewness",
+    "0_Standard deviation",
+    "0_Sum absolute diff",
+    "0_Variance"
+  ]
+}

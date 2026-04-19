@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import Any, Iterable, Optional, Protocol, runtime_checkable
 
+from .enums import RepresentationType, TaskType
 from .schemas import (
     BatchPredictionRecord,
     PipelineResult,
@@ -50,6 +52,63 @@ class BaseComponent(ABC):
 
     def describe(self) -> str:
         return f"{self.__class__.__name__}(name={self.name})"
+
+
+class BaseDatasetLoaderInterface(BaseComponent, ABC):
+    """
+    Base interface for all dataset loaders.
+    
+    A dataset loader is responsible for loading raw datasets and returning
+    task-specific bundles (train/test splits, labels, etc.).
+    """
+
+    @property
+    @abstractmethod
+    def task_type(self) -> TaskType:
+        """Task type this loader supports."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def load(self, dataset_name: str, base_dir: str | Path, **kwargs: Any) -> Any:
+        """Load one dataset and return a task-specific bundle."""
+        raise NotImplementedError
+
+
+class BaseRepresentationInterface(BaseComponent, ABC):
+    """
+    Base interface for all representation modules.
+
+    Implementations should transform one batch of TimeSeriesSample objects
+    into a typed representation output.
+    """
+
+    @property
+    @abstractmethod
+    def rep_type(self) -> RepresentationType:
+        """Representation type produced by this component."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def transform(
+        self,
+        input_data: Any,
+        context: Optional[dict[str, Any]] = None,
+    ) -> Any:
+        """Compute one representation batch from input samples."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def run(
+        self,
+        input_data: Any,
+        context: Optional[dict[str, Any]] = None,
+    ) -> Any:
+        """
+        Validate input, then compute representation.
+        
+        This is the main entry point for representation computation.
+        """
+        raise NotImplementedError
 
 
 class BaseTaskInterface(BaseComponent, ABC):
@@ -174,6 +233,33 @@ class BaseRetrieverInterface(BaseComponent, ABC):
         Retrieve top-k candidates from the memory bank for the given query.
 
         Implementations should return a structured retrieval schema object.
+        """
+        raise NotImplementedError
+
+
+class BaseEvaluatorInterface(BaseComponent, ABC):
+    """
+    Base interface for all evaluators.
+
+    An evaluator computes metrics on predictions or retrieval outputs and returns
+    structured metric results.
+    """
+
+    @abstractmethod
+    def validate_input(self, data: Any) -> None:
+        """
+        Validate input data before evaluation.
+
+        Implementations should raise ValueError / TypeError when the input is invalid.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def evaluate(self, data: Any, context: Optional[dict[str, Any]] = None) -> dict[str, Any]:
+        """
+        Evaluate the input data and return metric results.
+
+        Returns a dict containing metric names and their values.
         """
         raise NotImplementedError
 
