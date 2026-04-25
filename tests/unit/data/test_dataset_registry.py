@@ -20,14 +20,24 @@ from data.loaders.anomaly_loader import (
     NotImplementedAnomalySequenceLoader,
     NotImplementedAnomalyWindowLoader,
 )
-from data.loaders.classification_loader import UCR2015ClassificationLoader
+from data.loaders.classification_multivariate_loader import (
+    UEAMultivariateClassificationLoader,
+)
+from data.loaders.classification_univariate_loader import UCR2015ClassificationLoader
 
 
 def test_registry_contains_dataset_loaders_only() -> None:
     names = list_dataset_loaders()
     assert "ucr2015" in names
+    assert "uea" in names
     assert "anomaly_sequence" not in names
     assert "anomaly_window" not in names
+
+
+def test_uea_loader_routes_to_multivariate_loader() -> None:
+    loader = get_dataset_loader("uea")
+    assert isinstance(loader, UEAMultivariateClassificationLoader)
+    assert loader.task_type == TaskType.CLASSIFICATION
 
 
 def test_anomaly_loader_classes_keep_distinct_task_types() -> None:

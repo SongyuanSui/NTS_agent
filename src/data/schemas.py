@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Any, Optional
 
 from core.schemas import TimeSeriesSample
 
@@ -21,5 +21,5 @@ class ClassificationDatasetBundle:
     dataset_name: str
     train: DatasetSplit
     test: DatasetSplit
-    label_map: Optional[dict[float, int]] = None
+    label_map: Optional[dict[Any, int]] = None
     metadata: dict = field(default_factory=dict)

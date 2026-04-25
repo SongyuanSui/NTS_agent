@@ -1,5 +1,5 @@
 from .dataset_registry import get_dataset_loader, list_dataset_loaders, register_dataset_loader
-from .loaders.classification_loader import (
+from .loaders.classification_univariate_loader import (
     DEFAULT_UCR2015_DIR,
     UCR2015ClassificationLoader,
     list_ucr2015_datasets,

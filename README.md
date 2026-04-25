@@ -85,7 +85,8 @@ ts_agent/
 │   │   ├── collate.py
 │   │   ├── loaders/
 │   │   │   ├── __init__.py
-│   │   │   ├── classification_loader.py
+│   │   │   ├── classification_univariate_loader.py
+│   │   │   ├── classification_multivariate_loader.py
 │   │   │   ├── anomaly_loader.py
 │   │   │   └── prediction_loader.py
 │   │   └── adapters/

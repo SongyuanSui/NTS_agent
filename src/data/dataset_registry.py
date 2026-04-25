@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 from data.dataset_base import DatasetLoaderBase
-from data.loaders.classification_loader import UCR2015ClassificationLoader
+from data.loaders.classification_multivariate_loader import (
+    UEAMultivariateClassificationLoader,
+)
+from data.loaders.classification_univariate_loader import UCR2015ClassificationLoader
 
 
 _DATASET_REGISTRY: dict[str, DatasetLoaderBase] = {
     "ucr2015": UCR2015ClassificationLoader(),
+    "uea": UEAMultivariateClassificationLoader(),
 }
 
 

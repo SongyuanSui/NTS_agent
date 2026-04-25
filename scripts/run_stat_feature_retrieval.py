@@ -8,7 +8,9 @@ from typing import Any
 
 from core.constants import DEFAULT_OUTPUTS_ROOT
 from core.enums import TaskType
-from data.loaders.classification_loader import DEFAULT_UCR2015_DIR, UCR2015ClassificationLoader
+from data.dataset_registry import get_dataset_loader, list_dataset_loaders
+from data.loaders.classification_multivariate_loader import DEFAULT_UEA_DIR
+from data.loaders.classification_univariate_loader import DEFAULT_UCR2015_DIR
 from pipelines.stat_feature_retrieval_pipeline import (
     MemoryPersistenceConfig,
     StatFeatureRetrievalPipeline,
@@ -19,14 +21,21 @@ from retrieval.stat_retrievers import StatKNNRetriever
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Run stat-feature retrieval experiments on UCR2015 classification datasets.",
+        description="Run stat-feature retrieval on classification datasets (e.g., UCR2015, UEA).",
     )
-    parser.add_argument("--dataset", type=str, default="ECG200", help="UCR2015 dataset name")
+    parser.add_argument(
+        "--dataset-loader",
+        type=str,
+        default="ucr2015",
+        choices=list_dataset_loaders(),
+        help="Dataset loader key from registry (e.g., ucr2015, uea)",
+    )
+    parser.add_argument("--dataset", type=str, default="ECG200", help="Dataset name under the selected loader")
     parser.add_argument(
         "--base-dir",
         type=str,
-        default=str(DEFAULT_UCR2015_DIR),
-        help="Root directory of UCR2015 datasets",
+        default=None,
+        help="Optional dataset root directory override; if omitted, loader default is used",
     )
     parser.add_argument(
         "--max-samples-per-split",
@@ -37,6 +46,12 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--distance", type=str, default="cosine", choices=["cosine", "l2", "weighted_l2"])
     parser.add_argument("--normalize", type=str, default="zscore", choices=["none", "zscore", "robust", "log1p_robust"])
     parser.add_argument("--k", type=int, default=1, help="Top-k for retrieval metrics")
+    parser.add_argument(
+        "--channel-id",
+        type=int,
+        default=0,
+        help="Channel index used for retrieval/evaluation (for multivariate datasets)",
+    )
     parser.add_argument(
         "--feature-groups",
         nargs="*",
@@ -84,6 +99,15 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _default_base_dir_for_loader(loader_name: str) -> str:
+    normalized = loader_name.strip().lower()
+    if normalized == "ucr2015":
+        return str(DEFAULT_UCR2015_DIR)
+    if normalized == "uea":
+        return str(DEFAULT_UEA_DIR)
+    raise KeyError(f"No default base-dir configured for loader '{loader_name}'")
+
+
 def _run_once(
     train_samples,
     test_samples,
@@ -96,6 +120,7 @@ def _run_once(
     distance: str,
     normalize: str,
     k: int,
+    channel_id: int,
     feature_groups: list[str] | None,
 ) -> dict[str, Any]:
     pipeline = StatFeatureRetrievalPipeline(
@@ -122,7 +147,7 @@ def _run_once(
         query_samples=test_samples,
         task_type=TaskType.CLASSIFICATION,
         top_k=k,
-        channel_id=0,
+        channel_id=channel_id,
         memory_bank=None,
         memory_config=MemoryPersistenceConfig(
             persist_memory=bool(persist_memory),
@@ -131,7 +156,7 @@ def _run_once(
             dataset_name=dataset_name,
             experiment_name=experiment_name,
             outputs_root=outputs_root,
-            selected_channel_ids=[0],
+            selected_channel_ids=[channel_id],
         ),
     )
 
@@ -148,17 +173,31 @@ def main() -> None:
 
     if args.k <= 0:
         raise ValueError("--k must be a positive integer")
+    if args.channel_id < 0:
+        raise ValueError("--channel-id must be non-negative")
 
-    loader = UCR2015ClassificationLoader()
+    loader = get_dataset_loader(args.dataset_loader)
+    base_dir = args.base_dir or _default_base_dir_for_loader(args.dataset_loader)
     bundle = loader.load(
         dataset_name=args.dataset,
-        base_dir=args.base_dir,
+        base_dir=base_dir,
         remap_labels=True,
         max_samples_per_split=args.max_samples_per_split,
     )
 
     train_samples = bundle.train.samples
     test_samples = bundle.test.samples
+
+    if not train_samples:
+        raise ValueError("Loaded empty train split")
+    if not test_samples:
+        raise ValueError("Loaded empty test split")
+
+    n_channels = int(train_samples[0].num_channels)
+    if args.channel_id >= n_channels:
+        raise ValueError(
+            f"--channel-id out of range: {args.channel_id} for dataset with {n_channels} channels"
+        )
 
     if args.run_default_grid:
         configs = [
@@ -198,9 +237,12 @@ def main() -> None:
             distance=cfg["distance"],
             normalize=cfg["normalize"],
             k=cfg["k"],
+            channel_id=args.channel_id,
             feature_groups=args.feature_groups,
         )
         result["dataset"] = args.dataset
+        result["dataset_loader"] = args.dataset_loader
+        result["channel_id"] = args.channel_id
         result["distance"] = cfg["distance"]
         result["normalize"] = cfg["normalize"]
         all_results.append(result)
