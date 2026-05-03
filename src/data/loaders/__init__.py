@@ -12,6 +12,8 @@ from .classification_multivariate_loader import (
     load_uea_local,
 )
 from .anomaly_loader import (
+    SKABAnomalySequenceLoader,
+    SKABAnomalyWindowLoader,
     NotImplementedAnomalySequenceLoader,
     NotImplementedAnomalyWindowLoader,
 )
@@ -27,6 +29,8 @@ __all__ = [
     "load_ucr2015_as_samples",
     "load_ucr2015_local",
     "load_uea_local",
+    "SKABAnomalySequenceLoader",
+    "SKABAnomalyWindowLoader",
     "NotImplementedAnomalySequenceLoader",
     "NotImplementedAnomalyWindowLoader",
     "NotImplementedPredictionLoader",

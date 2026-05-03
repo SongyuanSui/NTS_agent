@@ -23,3 +23,26 @@ class ClassificationDatasetBundle:
     test: DatasetSplit
     label_map: Optional[dict[Any, int]] = None
     metadata: dict = field(default_factory=dict)
+
+
+@dataclass(slots=True)
+class AnomalySequenceDatasetBundle:
+    """Canonical anomaly-sequence dataset bundle used by data loaders."""
+
+    dataset_name: str
+    train: DatasetSplit
+    test: DatasetSplit
+    metadata: dict = field(default_factory=dict)
+
+
+@dataclass(slots=True)
+class AnomalyWindowDatasetBundle:
+    """Canonical anomaly-window dataset bundle used by data loaders."""
+
+    dataset_name: str
+    train: DatasetSplit
+    test: DatasetSplit
+    window_size: int = 0
+    stride: int = 1
+    rule: str = "any"
+    metadata: dict = field(default_factory=dict)

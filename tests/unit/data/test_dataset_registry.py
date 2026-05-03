@@ -17,6 +17,10 @@ from data.dataset_registry import (
     register_dataset_loader,
 )
 from data.loaders.anomaly_loader import (
+    SKABAnomalySequenceLoader,
+    SKABAnomalyWindowLoader,
+)
+from data.loaders.anomaly_loader import (
     NotImplementedAnomalySequenceLoader,
     NotImplementedAnomalyWindowLoader,
 )
@@ -30,8 +34,8 @@ def test_registry_contains_dataset_loaders_only() -> None:
     names = list_dataset_loaders()
     assert "ucr2015" in names
     assert "uea" in names
-    assert "anomaly_sequence" not in names
-    assert "anomaly_window" not in names
+    assert "skab_sequence" in names
+    assert "skab_window" in names
 
 
 def test_uea_loader_routes_to_multivariate_loader() -> None:
@@ -41,6 +45,8 @@ def test_uea_loader_routes_to_multivariate_loader() -> None:
 
 
 def test_anomaly_loader_classes_keep_distinct_task_types() -> None:
+    assert isinstance(get_dataset_loader("skab_sequence"), SKABAnomalySequenceLoader)
+    assert isinstance(get_dataset_loader("skab_window"), SKABAnomalyWindowLoader)
     assert NotImplementedAnomalySequenceLoader().task_type == TaskType.ANOMALY_SEQUENCE
     assert NotImplementedAnomalyWindowLoader().task_type == TaskType.ANOMALY_WINDOW
 
