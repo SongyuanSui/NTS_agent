@@ -13,6 +13,8 @@ from core.registry import (
 )
 from core.schemas import TaskSpec
 
+from src.llm import OpenAIClient, DeepSeekClient, QwenClient, LLMConfig, RetryConfig
+from src.llm.retry import with_retry
 
 def _ensure_dict(cfg: dict[str, Any] | None, what: str) -> dict[str, Any]:
     if cfg is None:
@@ -123,3 +125,33 @@ def build_pipeline(
         return pipeline_cls(name=name, config=params, components=components or {})
     except Exception as e:
         raise FactoryError(f"Failed to build pipeline '{name}': {e}") from e
+    
+def build_llm_client(cfg: dict):
+    llm_cfg = LLMConfig(
+        model=cfg["model"],
+        temperature=cfg.get("temperature", 0.0),
+        max_tokens=cfg.get("max_tokens", 2048),
+    )
+    retry_cfg = RetryConfig(**cfg.get("retry", {}))
+    provider = cfg["provider"]
+
+    if provider == "openai":
+        client = OpenAIClient(llm_cfg, api_key=os.environ["OPENAI_API_KEY"])
+    elif provider == "deepseek":
+        client = DeepSeekClient(
+            llm_cfg,
+            use_sglang=cfg.get("use_sglang", False),
+            base_url=cfg.get("base_url"),
+        )
+    elif provider == "qwen":
+        client = QwenClient(
+            llm_cfg,
+            use_sglang=cfg.get("use_sglang", False),
+            base_url=cfg.get("base_url"),
+        )
+    else:
+        raise ValueError(f"Unknown provider: {provider}")
+
+    # Wrap complete() with retry transparently
+    client.complete = with_retry(retry_cfg)(client.complete)
+    return client
