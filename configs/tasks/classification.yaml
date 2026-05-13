@@ -1,0 +1,9 @@
+task:
+  name: classification
+  task_spec:
+    task_type: classification
+    label_space: []
+    granularity: sample
+    description: Classify the input time series.
+    metadata: {}
+  params: {}

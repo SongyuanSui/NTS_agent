@@ -3,8 +3,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 from typing import Any
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+SRC_ROOT = REPO_ROOT / "src"
+if str(SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(SRC_ROOT))
 
 from core.constants import DEFAULT_OUTPUTS_ROOT
 from core.enums import TaskType
@@ -15,7 +21,6 @@ from pipelines.stat_feature_retrieval_pipeline import (
     MemoryPersistenceConfig,
     StatFeatureRetrievalPipeline,
 )
-from representations.statistics import StatisticsRepresentation
 from retrieval.stat_retrievers import StatKNNRetriever
 
 
@@ -123,6 +128,8 @@ def _run_once(
     channel_id: int,
     feature_groups: list[str] | None,
 ) -> dict[str, Any]:
+    from representations.statistics import StatisticsRepresentation
+
     pipeline = StatFeatureRetrievalPipeline(
         components={
             "representation": StatisticsRepresentation(),

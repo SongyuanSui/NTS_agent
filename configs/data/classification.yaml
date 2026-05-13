@@ -1,0 +1,14 @@
+data:
+  task_type: classification
+  dataset_loader: ucr2015
+  dataset_name: ECG200
+  base_dir: datasets/UCR_TS_Archive_2015
+  remap_labels: true
+  max_samples_per_split: null
+  split:
+    train: train
+    test: test
+
+uea:
+  dataset_loader: uea
+  base_dir: datasets/Multivariate2018_arff

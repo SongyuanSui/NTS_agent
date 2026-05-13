@@ -67,7 +67,7 @@ class ChannelSelectorInput(AgentInput):
     random_seed: int = 42
 
     def __post_init__(self) -> None:
-        super().__post_init__()
+        AgentInput.__post_init__(self)
 
         if not isinstance(self.train_samples, list) or len(self.train_samples) == 0:
             raise ValueError("train_samples must be a non-empty list of TimeSeriesSample.")
@@ -134,7 +134,7 @@ class ChannelSelectorOutput(AgentOutput):
     selection_applied: bool = True
 
     def __post_init__(self) -> None:
-        super().__post_init__()
+        AgentOutput.__post_init__(self)
 
         if not isinstance(self.selected_channel_ids, list):
             self.selected_channel_ids = list(self.selected_channel_ids)
@@ -201,7 +201,7 @@ class ChannelDecomposerInput(AgentInput):
     selected_channel_ids: list[int] | None = None
 
     def __post_init__(self) -> None:
-        super().__post_init__()
+        AgentInput.__post_init__(self)
 
         if self.query is None:
             raise ValueError("ChannelDecomposerInput.query must not be None.")
@@ -240,7 +240,7 @@ class ChannelDecomposerOutput(AgentOutput):
     selected_channel_ids: list[int] = field(default_factory=list)
 
     def __post_init__(self) -> None:
-        super().__post_init__()
+        AgentOutput.__post_init__(self)
 
         if not isinstance(self.query_id, str) or not self.query_id:
             raise ValueError("query_id must be a non-empty string.")
@@ -290,7 +290,7 @@ class RepresentationInput(AgentInput):
     representation_type: RepresentationType | None = None
 
     def __post_init__(self) -> None:
-        super().__post_init__()
+        AgentInput.__post_init__(self)
 
         if self.query is None or not isinstance(self.query, QueryInstance):
             raise TypeError("RepresentationInput.query must be a QueryInstance.")
@@ -321,7 +321,7 @@ class RepresentationOutput(AgentOutput):
     channel_payloads: dict[int, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        super().__post_init__()
+        AgentOutput.__post_init__(self)
 
         if not isinstance(self.query_id, str) or not self.query_id:
             raise ValueError("query_id must be a non-empty string.")
@@ -360,7 +360,7 @@ class RetrievalInput(AgentInput):
     top_k: int = 1
 
     def __post_init__(self) -> None:
-        super().__post_init__()
+        AgentInput.__post_init__(self)
 
         if self.query is None or not isinstance(self.query, QueryInstance):
             raise TypeError("RetrievalInput.query must be a QueryInstance.")
@@ -388,7 +388,7 @@ class RetrievalOutput(AgentOutput):
     retrieved_sets: dict[int, RetrievedSet] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        super().__post_init__()
+        AgentOutput.__post_init__(self)
 
         if not isinstance(self.query_id, str) or not self.query_id:
             raise ValueError("query_id must be a non-empty string.")
@@ -421,7 +421,7 @@ class ReasonerInput(AgentInput):
     retrieved_sets: dict[int, RetrievedSet] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        super().__post_init__()
+        AgentInput.__post_init__(self)
 
         if self.query is None or not isinstance(self.query, QueryInstance):
             raise TypeError("ReasonerInput.query must be a QueryInstance.")
@@ -484,7 +484,7 @@ class ReasonerOutput(AgentOutput):
     channel_decisions: list[ReasonerChannelDecision] = field(default_factory=list)
 
     def __post_init__(self) -> None:
-        super().__post_init__()
+        AgentOutput.__post_init__(self)
 
         if not isinstance(self.query_id, str) or not self.query_id:
             raise ValueError("query_id must be a non-empty string.")
@@ -512,7 +512,7 @@ class AggregationInput(AgentInput):
     channel_decisions: list[ReasonerChannelDecision] = field(default_factory=list)
 
     def __post_init__(self) -> None:
-        super().__post_init__()
+        AgentInput.__post_init__(self)
 
         if self.query is None or not isinstance(self.query, QueryInstance):
             raise TypeError("AggregationInput.query must be a QueryInstance.")
@@ -542,7 +542,7 @@ class AggregationOutput(AgentOutput):
     reasoning: Optional[str] = None
 
     def __post_init__(self) -> None:
-        super().__post_init__()
+        AgentOutput.__post_init__(self)
 
         if not isinstance(self.query_id, str) or not self.query_id:
             raise ValueError("query_id must be a non-empty string.")

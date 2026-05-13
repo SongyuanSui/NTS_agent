@@ -1,0 +1,5 @@
+agent:
+  name: channel_decomposer
+  params:
+    selected_channel_ids: null
+    keep_all_if_unset: true

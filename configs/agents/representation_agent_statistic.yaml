@@ -1,0 +1,6 @@
+agent:
+  name: representation_agent_statistic
+  params:
+    representation_type: statistic
+    feature_groups: null
+    verbose: false

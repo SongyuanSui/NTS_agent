@@ -1,0 +1,5 @@
+agent:
+  name: representation_agent_summary
+  params:
+    representation_type: summary
+    style: statistical

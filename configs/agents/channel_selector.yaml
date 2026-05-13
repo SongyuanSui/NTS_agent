@@ -1,0 +1,10 @@
+agent:
+  name: channel_selector
+  params:
+    top_k: 3
+    max_len: 384
+    z_norm: true
+    alpha: 0.5
+    nn_eval_samples: 200
+    diversity_threshold: null
+    random_seed: 42

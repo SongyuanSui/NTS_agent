@@ -1,0 +1,28 @@
+experiment:
+  name: ablations
+
+variants:
+  stat_only:
+    retrieval_agent: retrieval_agent_stat
+    weights:
+      stat: 1.0
+  ts_only:
+    retrieval_agent: retrieval_agent_ts
+    weights:
+      ts: 1.0
+  text_only:
+    retrieval_agent: retrieval_agent_text
+    weights:
+      text: 1.0
+  hybrid_equal:
+    retrieval_agent: retrieval_agent_hybrid
+    weights:
+      ts: 0.3333
+      text: 0.3333
+      stat: 0.3334
+  hybrid_stat_heavy:
+    retrieval_agent: retrieval_agent_hybrid
+    weights:
+      ts: 0.25
+      text: 0.15
+      stat: 0.60

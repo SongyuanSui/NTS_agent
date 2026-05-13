@@ -1,0 +1,5 @@
+agent:
+  name: aggregation_agent
+  params:
+    strategy: majority_vote
+    confidence_strategy: mean

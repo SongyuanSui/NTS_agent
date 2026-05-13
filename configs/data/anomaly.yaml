@@ -1,0 +1,18 @@
+data:
+  task_type: anomaly_window
+  dataset_loader: skab_window
+  dataset_name: SKAB
+  base_dir: datasets/anomaly/SKAB
+  max_files: null
+  subdirs: null
+
+loader_params:
+  label_col: anomaly
+  time_col: datetime
+  csv_glob: "**/*.csv"
+  drop_columns: null
+  train_ratio: 0.5
+  window_size: 60
+  stride: 10
+  rule: any
+  ratio_threshold: 0.1

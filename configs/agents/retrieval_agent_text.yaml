@@ -1,0 +1,5 @@
+agent:
+  name: retrieval_agent_text
+  params:
+    retriever_config:
+      method: embedding

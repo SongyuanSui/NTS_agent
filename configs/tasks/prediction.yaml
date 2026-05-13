@@ -1,0 +1,12 @@
+task:
+  name: prediction
+  task_spec:
+    task_type: prediction
+    label_space: []
+    granularity: sample
+    description: Predict the future target for the input time series.
+    metadata:
+      horizon: 1
+  params:
+    horizon: 1
+    target_name: null

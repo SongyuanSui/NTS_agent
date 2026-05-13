@@ -1,0 +1,17 @@
+pipeline:
+  name: inference_pipeline
+  params:
+    top_k: 5
+    selected_channel_ids: null
+
+components:
+  task: classification
+  channel_selector: channel_selector
+  channel_decomposer: channel_decomposer
+  retrieval_agent: retrieval_agent_hybrid
+  reasoner_agent: reasoner_agent
+  aggregator_agent: aggregation_agent
+
+memory:
+  build_before_inference: true
+  memory_config: configs/pipelines/memory_build.yaml

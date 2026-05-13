@@ -1,0 +1,6 @@
+agent:
+  name: reasoner_agent
+  params:
+    strategy: nearest_label
+    use_llm: false
+    prompt_config: {}

@@ -1,0 +1,14 @@
+experiment:
+  name: exp_classification
+
+defaults:
+  - configs/defaults.yaml
+  - configs/data/classification.yaml
+  - configs/tasks/classification.yaml
+  - configs/pipelines/end2end_univariate.yaml
+
+run:
+  mode: stat_feature_retrieval
+  top_k: 5
+  channel_id: 0
+  save_json: outputs/evaluations/exp_classification.json

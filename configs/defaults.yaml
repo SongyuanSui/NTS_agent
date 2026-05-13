@@ -1,0 +1,31 @@
+project:
+  name: nts_agent
+  outputs_root: outputs
+  random_seed: 42
+
+runtime:
+  pythonpath: src
+  log_level: INFO
+  save_events: true
+
+data:
+  base_dir: datasets
+  max_samples_per_split: null
+
+retrieval:
+  top_k: 5
+
+memory:
+  persist_memory: false
+  reuse_memory: true
+  force_rebuild: false
+
+llm:
+  provider: null
+  model: null
+  temperature: 0.0
+  max_tokens: 2048
+  retry:
+    max_attempts: 3
+    base_delay: 1.0
+    max_delay: 30.0

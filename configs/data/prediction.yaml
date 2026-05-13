@@ -1,0 +1,16 @@
+data:
+  task_type: prediction
+  dataset_loader: prediction
+  dataset_name: null
+  base_dir: datasets/prediction
+
+loader_params:
+  horizon: 1
+  target_col: null
+  time_col: null
+  train_ratio: 0.7
+  val_ratio: 0.1
+
+notes:
+  status: placeholder
+  reason: src/data/loaders/prediction_loader.py is not implemented yet.

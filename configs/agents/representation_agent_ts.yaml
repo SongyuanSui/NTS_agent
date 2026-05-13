@@ -1,0 +1,5 @@
+agent:
+  name: representation_agent_ts
+  params:
+    representation_type: ts
+    channel_id: 0

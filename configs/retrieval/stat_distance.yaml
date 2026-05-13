@@ -1,0 +1,6 @@
+retriever:
+  name: stat_knn
+  params:
+    distance: cosine
+    normalize: zscore
+    weights: null

@@ -1,0 +1,13 @@
+experiment:
+  name: exp_anomaly_window
+
+defaults:
+  - configs/defaults.yaml
+  - configs/data/anomaly.yaml
+  - configs/tasks/anomaly_window.yaml
+  - configs/pipelines/end2end_multivariate.yaml
+
+run:
+  mode: inference
+  top_k: 5
+  selected_channel_ids: null

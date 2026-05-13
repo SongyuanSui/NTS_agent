@@ -1,0 +1,6 @@
+agent:
+  name: retrieval_agent_stat
+  params:
+    retriever_config:
+      distance: cosine
+      normalize: zscore

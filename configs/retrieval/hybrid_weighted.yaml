@@ -1,0 +1,15 @@
+retriever:
+  name: weighted_hybrid
+  params:
+    fusion_method: normalized_weighted_sum
+    weights:
+      ts: 0.30
+      text: 0.20
+      stat: 0.50
+    ts:
+      distance: l2
+    text:
+      method: embedding
+    stat:
+      distance: cosine
+      normalize: zscore

@@ -1,0 +1,5 @@
+retriever:
+  name: text_summary
+  params:
+    method: embedding
+    notes: Current implementation is a lightweight placeholder, not a semantic embedding model.

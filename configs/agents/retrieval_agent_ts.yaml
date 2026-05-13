@@ -1,0 +1,5 @@
+agent:
+  name: retrieval_agent_ts
+  params:
+    retriever_config:
+      distance: l2

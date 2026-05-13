@@ -1,0 +1,18 @@
+pipeline:
+  name: memory_build_pipeline
+  params:
+    task_type: classification
+    selected_channel_ids:
+      - 0
+    persist_memory: true
+    reuse_memory: true
+    force_rebuild: false
+    outputs_root: outputs
+    dataset_name: null
+    experiment_name: memory_build
+    representation_metadata:
+      statistic:
+        feature_groups: null
+        verbose: false
+      summary:
+        style: statistical

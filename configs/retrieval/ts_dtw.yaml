@@ -1,0 +1,6 @@
+retriever:
+  name: raw_series
+  params:
+    distance: dtw
+    normalize: none
+    notes: dtw is declared but not implemented in RawSeriesRetriever yet.

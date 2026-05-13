@@ -1,0 +1,11 @@
+task:
+  name: anomaly_window
+  task_spec:
+    task_type: anomaly_window
+    label_space:
+      - normal
+      - anomaly
+    granularity: window
+    description: Detect whether a time-series window is anomalous.
+    metadata: {}
+  params: {}

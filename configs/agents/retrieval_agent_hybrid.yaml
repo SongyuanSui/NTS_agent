@@ -1,0 +1,15 @@
+agent:
+  name: retrieval_agent_hybrid
+  params:
+    use_weights: true
+    fusion_method: normalized_weighted_sum
+    ts_weight: 0.30
+    text_weight: 0.20
+    stat_weight: 0.50
+    ts_config:
+      distance: l2
+    text_config:
+      method: embedding
+    stat_config:
+      distance: cosine
+      normalize: zscore

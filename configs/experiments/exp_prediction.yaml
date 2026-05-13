@@ -1,0 +1,13 @@
+experiment:
+  name: exp_prediction
+
+defaults:
+  - configs/defaults.yaml
+  - configs/data/prediction.yaml
+  - configs/tasks/prediction.yaml
+  - configs/pipelines/end2end_univariate.yaml
+
+run:
+  mode: inference
+  status: blocked
+  reason: Prediction loader is not implemented yet.

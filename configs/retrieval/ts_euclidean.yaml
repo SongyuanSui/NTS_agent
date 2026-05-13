@@ -1,0 +1,5 @@
+retriever:
+  name: raw_series
+  params:
+    distance: l2
+    normalize: none
