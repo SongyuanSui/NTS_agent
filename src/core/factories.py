@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
 from core.exceptions import ConfigError, FactoryError
@@ -13,8 +14,8 @@ from core.registry import (
 )
 from core.schemas import TaskSpec
 
-from src.llm import OpenAIClient, DeepSeekClient, QwenClient, LLMConfig, RetryConfig
-from src.llm.retry import with_retry
+from llm import DeepSeekClient, LLMConfig, OpenAIClient, QwenClient, RetryConfig
+from llm.retry import with_retry
 
 def _ensure_dict(cfg: dict[str, Any] | None, what: str) -> dict[str, Any]:
     if cfg is None:
