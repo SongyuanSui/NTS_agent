@@ -2,5 +2,5 @@ agent:
   name: reasoner_agent
   params:
     strategy: nearest_label
-    use_llm: false
+    use_llm: true
     prompt_config: {}

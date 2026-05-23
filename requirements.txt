@@ -21,6 +21,7 @@ PyYAML>=6.0,<7.0
 # LLM clients
 openai>=1.40,<2.0
 requests>=2.31,<3.0
+sglang>=0.4.0
 
 # Testing
 pytest>=8.0,<9.0

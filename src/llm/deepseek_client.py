@@ -44,3 +44,7 @@ class QwenClient(OpenAIClient):
             resolved_url = base_url or _QWEN_BASE_URL
 
         super().__init__(config=config, api_key=resolved_key, base_url=resolved_url)
+
+
+# Backward-compatible alias used by core.factories and llm.__init__.
+DeepSeekClient = QwenClient

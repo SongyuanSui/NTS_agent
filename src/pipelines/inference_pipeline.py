@@ -1,4 +1,4 @@
-# src/pipelines/inference_pipeline.py
+"""src/pipelines/inference_pipeline.py"""
 
 from __future__ import annotations
 
@@ -14,6 +14,7 @@ from agents.schemas import (
     RetrievalInput,
     RetrievalOutput,
 )
+from core.factories import build_llm_client
 from core.registry import PIPELINE_REGISTRY
 from core.schemas import PipelineResult, PredictionRecord, QueryInstance, TimeSeriesSample
 from pipelines.pipeline_base import BasePipeline
@@ -60,6 +61,29 @@ class InferencePipeline(BasePipeline):
             if not self.has_component(key):
                 raise KeyError(f"{self.name}: required component '{key}' is missing.")
 
+    def _get_or_create_llm_client(self, context: dict[str, Any]) -> Any:
+        """Create or return an existing LLM client based on pipeline config.
+
+        Stores client in the provided context under 'llm_client'.
+        """
+        if context is None:
+            return None
+        if context.get("llm_client"):
+            return context.get("llm_client")
+
+        llm_cfg = self.get_config("llm", None)
+        if not llm_cfg:
+            return None
+
+        try:
+            client = build_llm_client(llm_cfg)
+            context["llm_client"] = client
+            self.log_info(context, "LLM client created from pipeline config")
+            return client
+        except Exception as e:
+            self.log_info(context, "Failed to create llm_client: %s", str(e))
+            return None
+
     def _run_impl(
         self,
         sample: TimeSeriesSample,
@@ -79,6 +103,9 @@ class InferencePipeline(BasePipeline):
             self.name,
             sample.sample_id,
         )
+
+        # Create llm_client and attach to context if configured
+        self._get_or_create_llm_client(context)
 
         # ------------------------------------------------------------------
         # Step 1: build task-specific query

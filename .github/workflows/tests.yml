@@ -27,4 +27,4 @@ jobs:
     - name: Run tests
       run: |
         export PYTHONPATH=src:$PYTHONPATH
-        python -m pytest tests/ -q
+        python -m pytest tests/ -q -m "not requires_llm"

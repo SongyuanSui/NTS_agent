@@ -250,3 +250,39 @@ ts_agent/
     ├── evaluations/
     ├── experiments/
     └── logs/
+
+## Running tests
+
+Tests are organized under `tests/{unit,component,integration}`. The `test.sh` wrapper invokes `pytest` with `PYTHONPATH=src` already set. It uses the `python` on `PATH`, so activate the project's conda env first (e.g. `conda activate nts_agent`).
+
+```bash
+./test.sh                                                      # all tests
+./test.sh unit                                                 # only unit
+./test.sh component                                            # only component
+./test.sh integration                                          # only integration
+./test.sh tests/integration/test_reasoner_llm_integration.py   # a specific file
+```
+
+Note: the shortcut keywords (`unit`/`component`/`integration`/`all`) consume `$1` and ignore any extra arguments. To pass pytest flags like `-m`, pass a path instead (the script then forwards all arguments verbatim) — see the skip example below.
+
+### Tests that need a local LLM server
+
+Tests marked with `@pytest.mark.requires_llm` (e.g. `tests/integration/test_reasoner_llm_integration.py`) hit a local LLM endpoint at `http://localhost:30000/v1` and will fail if it is not running.
+
+**To run them locally**, start sglang first (in a separate terminal — it's a long-running server):
+
+```bash
+./run_sglang_simple.sh
+# wait until the server reports it is serving, then check:
+curl -s http://localhost:30000/v1/models
+```
+
+Then run the tests as usual. `test.sh` does not pass `-m`, so `requires_llm` tests are included by default.
+
+**To skip these tests locally** when sglang is not available:
+
+```bash
+./test.sh tests/integration -m "not requires_llm"
+```
+
+**CI**: the GitHub Actions workflow already runs `pytest tests/ -q -m "not requires_llm"`, so `requires_llm` tests are skipped automatically in CI ([.github/workflows/tests.yml](.github/workflows/tests.yml)).

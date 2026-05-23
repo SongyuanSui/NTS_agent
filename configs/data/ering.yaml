@@ -1,0 +1,10 @@
+data:
+  task_type: classification
+  dataset_loader: uea
+  dataset_name: ERing
+  base_dir: datasets/Multivariate_ts
+  remap_labels: true
+  max_samples_per_split: null
+  split:
+    train: train
+    test: test

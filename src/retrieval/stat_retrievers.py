@@ -76,10 +76,16 @@ class StatKNNRetriever(BaseRetriever):
         weights = self._resolve_weights()
 
         query_vector, feature_order = self._extract_query_vector(query=query, context=context)
+
+        query_channel_id: Optional[int] = None
+        if isinstance(query.metadata, dict) and query.metadata.get("channel_id") is not None:
+            query_channel_id = int(query.metadata["channel_id"])
+
         candidate_rows = self._collect_candidates(
             memory_bank=memory_bank,
             feature_order=feature_order,
             exclude_sample_id=str(query.sample.sample_id),
+            channel_id=query_channel_id,
         )
 
         if len(candidate_rows) == 0:
@@ -164,12 +170,34 @@ class StatKNNRetriever(BaseRetriever):
         query: QueryInstance,
         context: Optional[dict[str, Any]],
     ) -> tuple[np.ndarray, Optional[list[str]]]:
+        channel_id = query.metadata.get("channel_id") if isinstance(query.metadata, dict) else None
+
+        # Preferred multi-channel input: context['query_stat_by_channel'] = {channel_id: {feature: value}}
+        if context and "query_stat_by_channel" in context and channel_id is not None:
+            by_channel = context["query_stat_by_channel"]
+            if isinstance(by_channel, dict) and channel_id in by_channel:
+                payload = by_channel[channel_id]
+                if isinstance(payload, dict):
+                    return self._dict_to_vector(payload, None)
+                return np.asarray(payload, dtype=float).reshape(-1), None
+
         if context and "query_stat_vector" in context:
-            vector = np.asarray(context["query_stat_vector"], dtype=float).reshape(-1)
+            payload = context["query_stat_vector"]
+            if channel_id is not None and isinstance(payload, dict) and channel_id in payload:
+                payload = payload[channel_id]
+            if isinstance(payload, dict):
+                return self._dict_to_vector(payload, None)
+            vector = np.asarray(payload, dtype=float).reshape(-1)
             return vector, None
 
         if context and "query_stat_dict" in context:
-            return self._dict_to_vector(context["query_stat_dict"], None)
+            payload = context["query_stat_dict"]
+            if channel_id is not None and isinstance(payload, dict) and channel_id in payload and isinstance(payload[channel_id], dict):
+                payload = payload[channel_id]
+            if isinstance(payload, dict):
+                return self._dict_to_vector(payload, None)
+            vector = np.asarray(payload, dtype=float).reshape(-1)
+            return vector, None
 
         stat_payload = query.metadata.get("statistic_view")
         if stat_payload is None:
@@ -191,12 +219,15 @@ class StatKNNRetriever(BaseRetriever):
         memory_bank: Any,
         feature_order: Optional[list[str]],
         exclude_sample_id: Optional[str],
+        channel_id: Optional[int] = None,
     ) -> list[_CandidateRow]:
         entries = memory_bank.get_all() if hasattr(memory_bank, "get_all") else list(memory_bank)
         rows: list[_CandidateRow] = []
         for entry in entries:
             row = self._candidate_to_row(entry, feature_order)
             if exclude_sample_id is not None and row.sample_id == exclude_sample_id:
+                continue
+            if channel_id is not None and row.channel_id != channel_id:
                 continue
             rows.append(row)
         return rows

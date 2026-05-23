@@ -52,14 +52,18 @@ class OpenAIClient(LLMClient):
         )
 
         t0 = time.perf_counter()
-        raw = self._client.chat.completions.create(
-            model=cfg.model,
-            messages=messages,
-            temperature=cfg.temperature,
-            max_tokens=cfg.max_tokens,
-            top_p=cfg.top_p,
-            **cfg.extra_kwargs,
-        )
+        try:
+            raw = self._client.chat.completions.create(
+                model=cfg.model,
+                messages=messages,
+                temperature=cfg.temperature,
+                max_tokens=cfg.max_tokens,
+                top_p=cfg.top_p,
+                **cfg.extra_kwargs,
+            )
+        except Exception as e:
+            logger.exception("OpenAIClient.complete exception: %s", repr(e))
+            raise
         latency_ms = (time.perf_counter() - t0) * 1000
 
         response = LLMResponse(
