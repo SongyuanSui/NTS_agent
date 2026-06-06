@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any, Callable, Optional
 
 from retrieval.schemas import RetrievedSet, RetrievedExample, RetrievalScore
+from utils.retrieval_compat import unwrap_payload
 
 
 FilterFn = Callable[[RetrievedExample], bool]
@@ -193,7 +194,7 @@ class RetrievedSetProcessor:
 				channel_id=example.channel_id,
 				representation_type=example.representation_type,
 				score=example.score,
-				payload=example.payload,
+				payload=unwrap_payload(example.payload),
 				metadata=metadata,
 			)
 			examples.append(new_example)
@@ -244,7 +245,7 @@ class RetrievedSetProcessor:
 				channel_id=example.channel_id,
 				representation_type=example.representation_type,
 				score=new_score,
-				payload=example.payload,
+				payload=unwrap_payload(example.payload),
 				metadata=example.metadata,
 			)
 			examples.append(new_example)

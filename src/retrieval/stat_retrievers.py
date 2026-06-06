@@ -9,6 +9,7 @@ from core.enums import RepresentationType, RetrievalMode
 from core.schemas import QueryInstance
 from retrieval.retriever_base import BaseRetriever
 from retrieval.schemas import RetrievedExample, RetrievedSet, RetrievalScore
+from utils.retrieval_compat import unwrap_payload
 from retrieval.scoring import (
     apply_normalization,
     cosine_distance,
@@ -133,7 +134,7 @@ class StatKNNRetriever(BaseRetriever):
                     channel_id=row.channel_id,
                     representation_type=RepresentationType.STATISTIC,
                     score=score,
-                    payload=row.payload,
+                    payload=unwrap_payload(row.payload),
                     metadata=dict(row.metadata),
                 )
             )
@@ -238,16 +239,20 @@ class StatKNNRetriever(BaseRetriever):
             label = candidate.get("label")
             channel_id = int(candidate.get("channel_id", 0))
             payload = candidate.get("payload")
+            payload = unwrap_payload(payload)
             stat_payload = candidate.get("statistic_view", candidate.get("stat_vector", payload))
+            stat_payload = unwrap_payload(stat_payload)
             metadata = candidate.get("metadata", {})
         else:
             sample_id = str(getattr(candidate, "sample_id", ""))
             label = getattr(candidate, "label", None)
             channel_id = int(getattr(candidate, "channel_id", 0))
             payload = getattr(candidate, "payload", None)
+            payload = unwrap_payload(payload)
             stat_payload = getattr(candidate, "statistic_view", None)
             if stat_payload is None:
                 stat_payload = getattr(candidate, "stat_vector", payload)
+                stat_payload = unwrap_payload(stat_payload)
             metadata = getattr(candidate, "metadata", {}) or {}
 
         if not sample_id:

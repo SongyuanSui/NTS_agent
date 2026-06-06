@@ -8,6 +8,7 @@ from core.enums import RepresentationType
 from core.registry import AGENT_REGISTRY
 from representations.raw_series import RawSeriesRepresentation
 from representations.schemas import RepresentationInput as RepInput
+from utils.retrieval_compat import unwrap_payload
 
 
 @AGENT_REGISTRY.decorator("representation_agent_ts")
@@ -47,7 +48,7 @@ class RepresentationAgentTS(BaseAgent):
 			rep_output = rep_component.run(rep_input)
 
 			if rep_output.records:
-				channel_payloads[channel.channel_id] = rep_output.records[0].payload
+				channel_payloads[channel.channel_id] = unwrap_payload(rep_output.records[0].payload)
 
 		self.log_info(
 			context,

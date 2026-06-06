@@ -18,6 +18,11 @@ from core.factories import build_llm_client
 from core.registry import PIPELINE_REGISTRY
 from core.schemas import PipelineResult, PredictionRecord, QueryInstance, TimeSeriesSample
 from pipelines.pipeline_base import BasePipeline
+from representations.raw_series import RawSeriesRepresentation
+from representations.text_summary import TextSummaryRepresentation
+from representations.schemas import RepresentationInput
+from representations.statistics import StatisticsRepresentation
+from utils.retrieval_compat import unwrap_payload
 
 
 @PIPELINE_REGISTRY.decorator("inference_pipeline")
@@ -177,6 +182,26 @@ class InferencePipeline(BasePipeline):
                 f"{self.name}: channel_decomposer returned no selected channels."
             )
 
+        query_views_by_channel = self._build_query_views_by_channel(
+            sample=sample,
+            selected_channels=selected_channels,
+            context=context,
+        )
+        if len(query_views_by_channel) == 1:
+            channel_id, views = next(iter(query_views_by_channel.items()))
+            query.metadata.update(views)
+            query.metadata["channel_id"] = channel_id
+        else:
+            query.metadata["ts_view_by_channel"] = {
+                channel_id: views["ts_view"] for channel_id, views in query_views_by_channel.items()
+            }
+            query.metadata["summary_view_by_channel"] = {
+                channel_id: views["summary_view"] for channel_id, views in query_views_by_channel.items()
+            }
+            query.metadata["statistic_view_by_channel"] = {
+                channel_id: views["statistic_view"] for channel_id, views in query_views_by_channel.items()
+            }
+
         self.log_info(
             context,
             "InferencePipeline '%s': decomposed sample_id=%s into %d selected channels",
@@ -235,6 +260,15 @@ class InferencePipeline(BasePipeline):
                 extra_context=context,
                 extras={
                     "decomposer_output": decomposer_output,
+                    "query_ts_by_channel": {
+                        channel_id: views["ts_view"] for channel_id, views in query_views_by_channel.items()
+                    },
+                    "query_summary_by_channel": {
+                        channel_id: views["summary_view"] for channel_id, views in query_views_by_channel.items()
+                    },
+                    "query_stat_by_channel": {
+                        channel_id: views["statistic_view"] for channel_id, views in query_views_by_channel.items()
+                    },
                 },
             ),
         )
@@ -303,6 +337,15 @@ class InferencePipeline(BasePipeline):
                 extras={
                     "decomposer_output": decomposer_output,
                     "retrieval_output": retrieval_output,
+                    "query_ts_by_channel": {
+                        channel_id: views["ts_view"] for channel_id, views in query_views_by_channel.items()
+                    },
+                    "query_summary_by_channel": {
+                        channel_id: views["summary_view"] for channel_id, views in query_views_by_channel.items()
+                    },
+                    "query_stat_by_channel": {
+                        channel_id: views["statistic_view"] for channel_id, views in query_views_by_channel.items()
+                    },
                 },
             ),
         )
@@ -514,3 +557,51 @@ class InferencePipeline(BasePipeline):
             context.update(extras)
 
         return context
+
+    def _build_query_views_by_channel(
+        self,
+        sample: TimeSeriesSample,
+        selected_channels: list[Any],
+        context: Optional[dict[str, Any]] = None,
+    ) -> dict[int, dict[str, Any]]:
+        """Compute per-channel TS, text summary, and statistic views for the current query sample."""
+        representation_metadata = self.get_config("representation_metadata", {})
+        stat_metadata: dict[str, Any] = {}
+        summary_metadata: dict[str, Any] = {}
+        if isinstance(representation_metadata, dict):
+            stat_metadata = dict(representation_metadata.get("statistic", {}) or {})
+            summary_metadata = dict(representation_metadata.get("summary", {}) or {})
+
+        ts_representation = RawSeriesRepresentation()
+        summary_representation = TextSummaryRepresentation(config=summary_metadata)
+        stat_representation = StatisticsRepresentation()
+
+        query_views_by_channel: dict[int, dict[str, Any]] = {}
+        for channel in selected_channels:
+            channel_id = int(getattr(channel, "channel_id", channel))
+            rep_input = RepresentationInput(
+                samples=[sample],
+                channel_id=channel_id,
+                metadata=stat_metadata,
+            )
+            ts_output = ts_representation.run(RepresentationInput(samples=[sample], channel_id=channel_id), context=context)
+            summary_output = summary_representation.run(
+                RepresentationInput(samples=[sample], channel_id=channel_id, metadata=summary_metadata),
+                context=context,
+            )
+            stat_output = stat_representation.run(
+                RepresentationInput(samples=[sample], channel_id=channel_id, metadata=stat_metadata),
+                context=context,
+            )
+
+            ts_payload = unwrap_payload(ts_output.records[0].payload) if ts_output.records else None
+            summary_payload = unwrap_payload(summary_output.records[0].payload) if summary_output.records else None
+            stat_payload = unwrap_payload(stat_output.records[0].payload) if stat_output.records else None
+
+            query_views_by_channel[channel_id] = {
+                "ts_view": dict(ts_payload) if isinstance(ts_payload, dict) else ts_payload,
+                "summary_view": summary_payload,
+                "statistic_view": dict(stat_payload) if isinstance(stat_payload, dict) else stat_payload,
+            }
+
+        return query_views_by_channel

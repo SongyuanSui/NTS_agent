@@ -551,13 +551,16 @@ class StatFeatureRetrievalPipeline(BasePipeline):
         input_sample_ids = {sample.sample_id for sample in samples}
 
         # Preferred mapping: explicit sample_id in record metadata.
+        from utils.retrieval_compat import unwrap_payload
+
         for record in rep_output.records:
             sample_id = str(record.metadata.get("sample_id", "")).strip()
             if sample_id and sample_id in input_sample_ids:
-                stat_by_sample_id[sample_id] = dict(record.payload)
+                payload = unwrap_payload(record.payload)
+                stat_by_sample_id[sample_id] = dict(payload)
 
         has_aggregate_payload = any(
-            isinstance(record.payload, dict) and "statistical_features" in record.payload
+            isinstance(unwrap_payload(record.payload), dict) and "statistical_features" in unwrap_payload(record.payload)
             for record in rep_output.records
         )
 
@@ -565,7 +568,8 @@ class StatFeatureRetrievalPipeline(BasePipeline):
         if not has_aggregate_payload and len(rep_output.records) == len(samples):
             for sample, record in zip(samples, rep_output.records):
                 if sample.sample_id not in stat_by_sample_id:
-                    stat_by_sample_id[sample.sample_id] = dict(record.payload)
+                    payload = unwrap_payload(record.payload)
+                    stat_by_sample_id[sample.sample_id] = dict(payload)
 
 
         return stat_by_sample_id

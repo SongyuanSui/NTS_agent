@@ -5,6 +5,7 @@ from typing import Any, Callable, Optional
 import numpy as np
 
 from retrieval.schemas import RetrievedSet, RetrievalScore
+from utils.retrieval_compat import unwrap_payload
 
 
 ScoreFusionFn = Callable[[list[float], list[bool]], float]
@@ -77,11 +78,23 @@ _FUSION_FUNCS: dict[str, Any] = {
 }
 
 
+def _view_key_for_mode(retrieval_mode: str) -> str | None:
+	mode = str(retrieval_mode).lower()
+	if mode == "ts":
+		return "ts_view"
+	if mode == "text":
+		return "summary_view"
+	if mode == "stat":
+		return "statistic_view"
+	return None
+
+
 def fuse_retrieved_sets(
 	retrieved_sets: list[RetrievedSet],
 	method: str = "average",
 	weights: Optional[list[float]] = None,
 	top_k: Optional[int] = None,
+	memory_bank: Any = None,
 ) -> RetrievedSet:
 	"""
 	Fuse multiple retrieved sets into a single ranked list.
@@ -110,25 +123,46 @@ def fuse_retrieved_sets(
 
 	query_id = retrieved_sets[0].query_id
 
-	sample_to_scores: dict[str, list[float]] = {}
-	sample_to_higher_is_better: dict[str, list[bool]] = {}
-	sample_info: dict[str, tuple] = {}
+	memory_lookup: dict[tuple[str, int], Any] = {}
+	if memory_bank is not None:
+		entries = memory_bank.get_all() if hasattr(memory_bank, "get_all") else list(memory_bank)
+		for entry in entries:
+			sample_id = str(getattr(entry, "sample_id", ""))
+			channel_id = int(getattr(entry, "channel_id", -1))
+			if sample_id and channel_id >= 0:
+				memory_lookup[(sample_id, channel_id)] = entry
+
+	# key by (sample_id, channel_id) to preserve channel provenance
+	sample_to_scores: dict[tuple[str, int], list[float]] = {}
+	sample_to_higher_is_better: dict[tuple[str, int], list[bool]] = {}
+	sample_info: dict[tuple[str, int], tuple] = {}
+	sample_views: dict[tuple[str, int], dict[str, Any]] = {}
+	sample_retrieval_modes: dict[tuple[str, int], set[str]] = {}
 
 	for retrieved_set in retrieved_sets:
+		view_key = _view_key_for_mode(retrieved_set.retrieval_mode)
 		for example in retrieved_set.examples:
-			sample_id = example.sample_id
-			if sample_id not in sample_to_scores:
-				sample_to_scores[sample_id] = []
-				sample_to_higher_is_better[sample_id] = []
-				sample_info[sample_id] = (example.label, example.channel_id, example.payload, example.metadata)
+			sample_id = str(example.sample_id)
+			channel_id = int(example.channel_id) if example.channel_id is not None else -1
+			key = (sample_id, channel_id)
+			if key not in sample_to_scores:
+				sample_to_scores[key] = []
+				sample_to_higher_is_better[key] = []
+				sample_info[key] = (example.label, channel_id, unwrap_payload(example.payload), example.metadata)
+				sample_views[key] = {}
+				sample_retrieval_modes[key] = set()
 
-			sample_to_scores[sample_id].append(float(example.score.value))
-			sample_to_higher_is_better[sample_id].append(example.score.higher_is_better)
+			sample_retrieval_modes[key].add(retrieved_set.retrieval_mode)
+			if view_key is not None and example.payload is not None:
+				sample_views[key][view_key] = unwrap_payload(example.payload)
+
+			sample_to_scores[key].append(float(example.score.value))
+			sample_to_higher_is_better[key].append(example.score.higher_is_better)
 
 	fused_scores = {}
-	for sample_id in sample_to_scores.keys():
-		scores = sample_to_scores[sample_id]
-		is_better = sample_to_higher_is_better[sample_id]
+	for key in sample_to_scores.keys():
+		scores = sample_to_scores[key]
+		is_better = sample_to_higher_is_better[key]
 
 		if method == "rrf":
 			fused = _reciprocal_rank_fusion(scores, is_better)
@@ -149,7 +183,7 @@ def fuse_retrieved_sets(
 		else:
 			fused = _average_fusion(scores, is_better)
 
-		fused_scores[sample_id] = fused
+		fused_scores[key] = fused
 
 	sorted_items = sorted(fused_scores.items(), key=lambda x: x[1], reverse=True)
 	if top_k is not None:
@@ -158,8 +192,27 @@ def fuse_retrieved_sets(
 	from retrieval.schemas import RetrievedExample
 
 	examples = []
-	for sample_id, fused_score in sorted_items:
-		label, channel_id, payload, metadata = sample_info[sample_id]
+	for key, fused_score in sorted_items:
+		sample_id, channel_id = key
+		label, _, payload, metadata = sample_info[key]
+		merged_views = dict(sample_views.get(key, {}))
+		memory_entry = memory_lookup.get((sample_id, int(channel_id)))
+		if memory_entry is not None:
+			if "ts_view" not in merged_views and getattr(memory_entry, "ts_view", None) is not None:
+				merged_views["ts_view"] = getattr(memory_entry, "ts_view")
+			if "summary_view" not in merged_views and getattr(memory_entry, "summary_view", None) is not None:
+				merged_views["summary_view"] = getattr(memory_entry, "summary_view")
+			if "statistic_view" not in merged_views and getattr(memory_entry, "statistic_view", None) is not None:
+				merged_views["statistic_view"] = getattr(memory_entry, "statistic_view")
+		merged_metadata = dict(metadata or {})
+		if merged_views:
+			# preserve provenance by storing channel_id alongside each view
+			prov_views = {}
+			for k, v in merged_views.items():
+				prov_views[k] = {"channel_id": channel_id, "view": v}
+			merged_metadata["retrieval_views"] = prov_views
+			merged_metadata["retrieval_modes"] = sorted(sample_retrieval_modes.get(key, set()))
+			payload = prov_views
 		score = RetrievalScore(
 			value=float(fused_score),
 			higher_is_better=True,
@@ -173,7 +226,7 @@ def fuse_retrieved_sets(
 				representation_type=retrieved_sets[0].examples[0].representation_type if retrieved_sets[0].examples else None,
 				score=score,
 				payload=payload,
-				metadata=metadata,
+				metadata=merged_metadata,
 			)
 		)
 

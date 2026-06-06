@@ -10,6 +10,7 @@ import numpy as np
 
 from core.schemas import ChannelData
 from retrieval.schemas import RetrievedExample, RetrievedSet
+from utils.retrieval_compat import unwrap_payload
 
 
 def format_float_for_llm(
@@ -246,7 +247,7 @@ def format_retrieved_example_for_llm(
         return header
 
     payload_text = _format_payload_for_llm(
-        payload=example.payload,
+        payload=unwrap_payload(example.payload),
         decimals=decimals,
         mode=mode,
         max_items=max_items,

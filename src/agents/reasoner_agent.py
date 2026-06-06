@@ -452,14 +452,15 @@ class ReasonerAgent(BaseAgent):
 			label = getattr(ex, 'label', None)
 			score = getattr(ex, 'score', None)
 
-			# Prefer stored statistic payloads; fall back to raw series only if needed.
-			nb_stats = self._extract_neighbor_statistics(ex)
+			neighbor_raw, neighbor_text, neighbor_stats = self._extract_neighbor_views(ex)
 
 			neighbor_text = reasoner_templates.NEIGHBOR_TEMPLATE.format(
 				sample_id=sample_id,
 				label=label,
 				score=score,
-				stats=json.dumps(nb_stats),
+				raw_series=self._format_series(neighbor_raw, max_len=48),
+				text_summary=neighbor_text,
+				stats=json.dumps(neighbor_stats),
 			)
 			neighbors_lines.append(neighbor_text)
 
@@ -488,39 +489,94 @@ class ReasonerAgent(BaseAgent):
 
 		return user_prompt
 
-	def _extract_neighbor_statistics(self, example: Any) -> dict[str, Any]:
-		"""Extract a neighbor's statistical payload with feature names when available."""
-		for attr_name in ("payload", "statistic_view", "stat_vector"):
-			payload = getattr(example, attr_name, None)
-			if payload is None:
-				continue
-			if isinstance(payload, dict):
-				return payload
-			try:
-				return dict(payload)
-			except Exception:
-				pass
+	def _extract_neighbor_views(self, example: Any) -> tuple[list[float], str, dict[str, Any]]:
+		"""Extract raw, text, and statistic views for a neighbor."""
+		raw_series: list[float] = []
+		text_summary = ""
+		stats: dict[str, Any] = {}
 
+		payload = getattr(example, "payload", None)
 		metadata = getattr(example, "metadata", None)
+
+		def _unwrap(view_val: Any) -> Any:
+			"""If view_val is a provenance-wrapped dict {"channel_id":..., "view":...}, unwrap it."""
+			if isinstance(view_val, dict) and "view" in view_val and len(view_val) == 2 and "channel_id" in view_val:
+				return view_val.get("view")
+			return view_val
+
+		if isinstance(payload, dict):
+			raw_series = self._coerce_series(_unwrap(payload.get("ts_view")))
+			text_summary = self._coerce_text(_unwrap(payload.get("summary_view")))
+			stats = self._coerce_stats(_unwrap(payload.get("statistic_view")))
+			if not raw_series and "payload" in payload:
+				raw_series = self._coerce_series(_unwrap(payload.get("payload")))
+			if not text_summary and "text" in payload:
+				text_summary = self._coerce_text(_unwrap(payload.get("text")))
+			if not stats and "stats" in payload:
+				stats = self._coerce_stats(_unwrap(payload.get("stats")))
+		elif payload is not None:
+			if isinstance(payload, str):
+				text_summary = payload
+			elif isinstance(payload, dict):
+				stats = self._coerce_stats(payload)
+			else:
+				raw_series = self._coerce_series(payload)
+
 		if isinstance(metadata, dict):
-			for key in ("statistic_view", "stat_vector", "payload"):
-				payload = metadata.get(key)
-				if payload is None:
-					continue
-				if isinstance(payload, dict):
-					return payload
-				try:
-					return dict(payload)
-				except Exception:
-					pass
+			views = metadata.get("retrieval_views")
+			if isinstance(views, dict):
+				if not raw_series:
+					raw_series = self._coerce_series(_unwrap(views.get("ts_view")))
+				if not text_summary:
+					text_summary = self._coerce_text(_unwrap(views.get("summary_view")))
+				if not stats:
+					stats = self._coerce_stats(_unwrap(views.get("statistic_view")))
 
 		for attr_name in ("values", "data", "x"):
+			if raw_series:
+				break
 			raw = getattr(example, attr_name, None)
 			if raw is None:
 				continue
-			try:
-				return self._compute_statistics(raw)
-			except Exception:
-				continue
+			raw_series = self._coerce_series(raw)
 
-		return {}
+		if not text_summary:
+			for attr_name in ("text", "summary_view"):
+				text_value = getattr(example, attr_name, None)
+				if text_value is None:
+					continue
+				text_summary = self._coerce_text(text_value)
+				break
+
+		return raw_series, text_summary, stats
+
+	def _extract_neighbor_statistics(self, example: Any) -> dict[str, Any]:
+		"""Extract a neighbor's statistical payload with feature names when available."""
+		_, _, stats = self._extract_neighbor_views(example)
+		return stats
+
+	def _coerce_series(self, value: Any) -> list[float]:
+		if value is None:
+			return []
+		if isinstance(value, list):
+			return [float(x) for x in value]
+		try:
+			arr = np.asarray(value, dtype=float).reshape(-1)
+			return [float(x) for x in arr]
+		except Exception:
+			return []
+
+	def _coerce_text(self, value: Any) -> str:
+		if value is None:
+			return ""
+		return str(value)
+
+	def _coerce_stats(self, value: Any) -> dict[str, Any]:
+		if value is None:
+			return {}
+		if isinstance(value, dict):
+			return value
+		try:
+			return dict(value)
+		except Exception:
+			return {}

@@ -114,9 +114,35 @@ class RawSeriesRetriever(BaseRetriever):
 		return _DISTANCE_FUNCS[name]
 
 	def _extract_query_series(self, query: QueryInstance) -> np.ndarray:
-		ts_payload = query.metadata.get("ts_view")
+		channel_id = None
+		if isinstance(query.metadata, dict):
+			channel_id = query.metadata.get("channel_id")
+
+		ts_payload = None
+		if hasattr(query, "metadata") and isinstance(query.metadata, dict):
+			if channel_id is not None:
+				by_channel = query.metadata.get("ts_view_by_channel")
+				if isinstance(by_channel, dict) and channel_id in by_channel:
+					ts_payload = by_channel[channel_id]
+			if ts_payload is None:
+				ts_payload = query.metadata.get("ts_view")
+			if ts_payload is None:
+				ts_payload = query.metadata.get("ts")
+			if ts_payload is None:
+				ts_payload = query.metadata.get("raw_view")
+
+		if ts_payload is None:
+			# This retriever is often called with channel-specific context by the hybrid pipeline.
+			# Allow the runtime context to carry the per-channel query view.
+			pass
+
+		# If the caller passes the per-channel query view in context, prefer it.
+		# The base retriever does not currently forward context to _extract_query_series,
+		# so this fallback is used by inference pipeline through query.metadata.
 		if ts_payload is None:
 			ts_payload = query.sample.x
+			if channel_id is not None and getattr(ts_payload, "ndim", 1) == 2:
+				ts_payload = ts_payload[:, int(channel_id)]
 
 		arr = np.asarray(ts_payload, dtype=float)
 		if arr.ndim > 1:

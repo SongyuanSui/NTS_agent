@@ -48,4 +48,6 @@ Remember: ONLY output the single JSON object and nothing else."""
 NEIGHBOR_TEMPLATE = """- ID: {sample_id}
   Label: {label}
   Score: {score}
+  Raw Series (truncated): {raw_series}
+  Text Summary: {text_summary}
   TSFEL Feature Statistics: {stats}"""

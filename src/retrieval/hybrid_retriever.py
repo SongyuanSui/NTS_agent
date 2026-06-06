@@ -84,6 +84,7 @@ class HybridRetriever(BaseRetriever):
 			method=fusion_method,
 			weights=fusion_weights,
 			top_k=top_k,
+			memory_bank=memory_bank,
 		)
 
 		return fused
@@ -160,6 +161,7 @@ class WeightedHybridRetriever(HybridRetriever):
 			method=fusion_method,
 			weights=weights,
 			top_k=top_k,
+			memory_bank=memory_bank,
 		)
 
 		return fused

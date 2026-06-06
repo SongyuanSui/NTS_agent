@@ -296,14 +296,16 @@ class MemoryBuildPipeline(BasePipeline):
         sample_ids = {sample.sample_id for sample in samples}
         payloads: dict[str, Any] = {}
 
+        from utils.retrieval_compat import unwrap_payload
+
         for record in output.records:
             sample_id = str(record.metadata.get("sample_id", "")).strip()
             if sample_id in sample_ids:
-                payloads[sample_id] = record.payload
+                payloads[sample_id] = unwrap_payload(record.payload)
 
         if len(payloads) < len(samples) and output.num_records == len(samples):
             for sample, record in zip(samples, output.records):
-                payloads.setdefault(sample.sample_id, record.payload)
+                payloads.setdefault(sample.sample_id, unwrap_payload(record.payload))
 
         return payloads
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import string
 from typing import Any, Callable, Optional
 
 import numpy as np
@@ -42,16 +43,13 @@ def _text_embedding_similarity(s1: str, s2: str) -> float:
 def _simple_text_vector(text: str) -> np.ndarray:
 	"""Create a simple numeric vector from text."""
 	text = text.lower()
-	chars = {}
+	alphabet = string.ascii_lowercase + string.digits
+	counts = {ch: 0.0 for ch in alphabet}
 	for ch in text:
-		if ch.isalpha():
-			chars[ch] = chars.get(ch, 0) + 1
+		if ch in counts:
+			counts[ch] += 1.0
 
-	if not chars:
-		return np.array([0.0])
-
-	sorted_chars = sorted(chars.keys())
-	return np.array([float(chars[ch]) for ch in sorted_chars], dtype=float)
+	return np.array([counts[ch] for ch in alphabet], dtype=float)
 
 
 _SIMILARITY_FUNCS: dict[str, SimilarityFn] = {
@@ -153,9 +151,22 @@ class TextSummaryRetriever(BaseRetriever):
 		return _SIMILARITY_FUNCS[method]
 
 	def _extract_query_text(self, query: QueryInstance) -> str:
-		summary_payload = query.metadata.get("summary_view")
-		if summary_payload is None:
-			summary_payload = query.metadata.get("text")
+		channel_id = None
+		if isinstance(query.metadata, dict):
+			channel_id = query.metadata.get("channel_id")
+
+		summary_payload = None
+		if isinstance(query.metadata, dict):
+			if channel_id is not None:
+				by_channel = query.metadata.get("summary_view_by_channel")
+				if isinstance(by_channel, dict) and channel_id in by_channel:
+					summary_payload = by_channel[channel_id]
+			if summary_payload is None:
+				summary_payload = query.metadata.get("summary_view")
+			if summary_payload is None:
+				summary_payload = query.metadata.get("text")
+			if summary_payload is None:
+				summary_payload = query.metadata.get("summary")
 
 		if not isinstance(summary_payload, str):
 			summary_payload = str(summary_payload) if summary_payload is not None else ""

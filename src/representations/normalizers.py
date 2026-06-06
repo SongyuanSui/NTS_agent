@@ -5,6 +5,7 @@ from typing import Any, Optional
 import numpy as np
 
 from core.schemas import RepresentationRecord
+from utils.retrieval_compat import unwrap_payload
 
 
 def normalize_array(
@@ -107,7 +108,7 @@ def normalize_records(
 
 	normalized_records = []
 	for record in records:
-		payload = record.payload
+		payload = unwrap_payload(record.payload)
 
 		if isinstance(payload, dict):
 			if payload_key is None:

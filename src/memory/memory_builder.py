@@ -131,10 +131,12 @@ class MemoryBuilder:
 		if repr_output is None or not repr_output.records:
 			return None
 
-		if len(repr_output.records) == 1:
-			return repr_output.records[0].payload
+		from utils.retrieval_compat import unwrap_payload
 
-		payloads = [record.payload for record in repr_output.records]
+		if len(repr_output.records) == 1:
+			return unwrap_payload(repr_output.records[0].payload)
+
+		payloads = [unwrap_payload(record.payload) for record in repr_output.records]
 		return payloads
 
 
