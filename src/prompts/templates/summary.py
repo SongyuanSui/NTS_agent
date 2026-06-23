@@ -1,20 +1,40 @@
 """Prompt templates for natural-language time-series summaries."""
 
-SYSTEM_PROMPT = """You are a concise time-series summarization assistant.
-Describe the series shape, scale, trend, variability, and notable events.
-Return only valid JSON with the requested keys."""
+CHANNEL_SYSTEM_PROMPT = (
+    "Your job is to act as a professional {DOMAIN} analyst. You will write a high-quality analytical report "
+    "that is informative and helps in understanding the current situation based on time-series data.\n"
+    "Output only the final report, never reasoning or explanations. Strictly follow the user's formatting "
+    "instructions and include no extra text."
+)
 
-USER_TEMPLATE = """Task: summarize the query time series for retrieval and downstream reasoning.
-
-Summary style:
-{summary_style}
-
-Query:
-{query_block}
-
-Return JSON with this schema:
-{{
-  "summary": "<concise time-series summary>",
-  "key_patterns": ["<pattern>", "..."],
-  "reasoning": "<brief explanation of the summary>"
-}}"""
+CHANNEL_USER_TEMPLATE = (
+    "Analyze the following time-series indicator.\n\n"
+    "Entity: {ENTITY}\n"
+    "Indicator: {INDICATOR_NAME}\n"
+    "Window: last {WINDOW_SIZE} {TIME_STEP}(s)\n\n"
+    "Time-series values (separated by \"|\"):\n"
+    "{INDICATOR_SERIES}\n\n"
+    "Follow these steps:\n\n"
+    "1. Determine the trend category from this list:\n"
+    "- increasing\n"
+    "- decreasing\n"
+    "- stable\n"
+    "- fluctuating\n\n"
+    "2. Determine the volatility category:\n"
+    "- low volatility\n"
+    "- moderate volatility\n"
+    "- high volatility\n\n"
+    "3. Determine the range characteristic:\n"
+    "- narrow range\n"
+    "- moderate range\n"
+    "- wide range\n\n"
+    "Determine a short analytical implication describing the current behavior of the indicator.\n"
+    "Then produce a three-sentence report with the structure:\n\n"
+    "Sentence 1: state the trend.\n"
+    "Sentence 2: describe the range and volatility.\n"
+    "Sentence 3: explain the implication.\n\n"
+    "Constraints:\n"
+    "- Do not write numerical values.\n"
+    "- Use concise professional language.\n"
+    "- Return exactly three sentences on three lines and nothing else."
+)

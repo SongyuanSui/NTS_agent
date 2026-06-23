@@ -2,4 +2,7 @@ agent:
   name: retrieval_agent_text
   params:
     retriever_config:
-      method: embedding
+      method: cosine   # 'ratio' | 'embedding' | 'cosine'
+                       # 'cosine' uses pre-computed dense embeddings from
+                       # context['text_embeddings'] (dict[str, np.ndarray]);
+                       # falls back to 'embedding' if embeddings are absent.

@@ -11,7 +11,7 @@ from representations.schemas import RepresentationInput, RepresentationOutput
 
 
 class TextSummaryRepresentation(BaseRepresentation):
-	"""Representation component that produces text summaries of time series."""
+	"""Representation component that produces LLM-based text summaries of time series."""
 
 	def __init__(
 		self,
@@ -35,7 +35,8 @@ class TextSummaryRepresentation(BaseRepresentation):
 			summary = generate_text_summary(
 				sample,
 				channel_id=input_data.channel_id,
-				style=input_data.metadata.get("style", "basic"),
+				context=context,
+				channel_name=input_data.metadata.get("channel_name"),
 			)
 
 			records.append(
@@ -45,7 +46,6 @@ class TextSummaryRepresentation(BaseRepresentation):
 					metadata={
 						"sample_id": sample.sample_id,
 						"channel_id": input_data.channel_id,
-						"style": input_data.metadata.get("style", "basic"),
 					},
 				)
 			)
@@ -64,9 +64,14 @@ class TextSummaryRepresentation(BaseRepresentation):
 def generate_text_summary(
 	sample: TimeSeriesSample,
 	channel_id: int = 0,
-	style: str = "basic",
+	context: Optional[dict[str, Any]] = None,
+	channel_name: Optional[str] = None,
 ) -> str:
-	"""Generate a text summary of a time series."""
+	"""Generate an LLM-based text summary of a time series channel.
+
+	context must contain 'llm_client' (an LLMClient instance).
+	Optional context keys: 'channel_names' (dict[int, str]), 'domain', 'time_step', 'entity'.
+	"""
 	x = sample.x
 	if x.ndim == 2:
 		if channel_id < 0 or channel_id >= x.shape[1]:
@@ -76,64 +81,81 @@ def generate_text_summary(
 			)
 		x = x[:, channel_id]
 
-	if style == "basic":
-		return _basic_summary(x)
-	elif style == "statistical":
-		return _statistical_summary(x)
-	else:
-		return _basic_summary(x)
+	return _llm_channel_summary(x, channel_id, channel_name, context)
 
 
-def _basic_summary(x: np.ndarray) -> str:
-	"""Generate a basic text summary with key statistics."""
-	mean_val = float(np.mean(x))
-	std_val = float(np.std(x))
-	min_val = float(np.min(x))
-	max_val = float(np.max(x))
-	length = len(x)
+def _llm_channel_summary(
+	x: np.ndarray,
+	channel_id: int,
+	channel_name: Optional[str],
+	context: Optional[dict[str, Any]],
+) -> str:
+	"""Call an LLM to produce a per-channel natural-language summary.
 
-	return (
-		f"Time series with {length} observations. "
-		f"Mean: {mean_val:.4f}, Std: {std_val:.4f}, "
-		f"Min: {min_val:.4f}, Max: {max_val:.4f}."
+	Follows the by-channel approach from localLM_TimeCAP.contextualize_channel:
+	one LLM call per channel, prompt asks for trend / range / interpretation in
+	three sentences without numerical values.
+
+	Falls back to _basic_summary if no llm_client is available in context.
+	"""
+	from llm.client_base import LLMRequest
+	from prompts.templates.summary import CHANNEL_SYSTEM_PROMPT, CHANNEL_USER_TEMPLATE
+
+	ctx = context or {}
+	llm_client = ctx.get("llm_client")
+	if llm_client is None:
+		raise ValueError("context['llm_client'] is required for LLM-based text summarization")
+
+	channel_names: dict[int, str] = ctx.get("channel_names", {})
+	name = channel_name or channel_names.get(channel_id, f"Channel {channel_id}")
+	domain: str = ctx.get("domain", "time series")
+	time_step: str = ctx.get("time_step", "step")
+	entity: str = ctx.get("entity", "")
+
+	indicator_series = "|".join(f"{v:.2f}" for v in x)
+	window_size = len(x)
+
+	system_prompt = CHANNEL_SYSTEM_PROMPT.format(DOMAIN=domain)
+	user_prompt = CHANNEL_USER_TEMPLATE.format(
+		ENTITY=entity,
+		INDICATOR_NAME=name,
+		WINDOW_SIZE=window_size,
+		TIME_STEP=time_step,
+		INDICATOR_SERIES=indicator_series,
 	)
 
-
-def _statistical_summary(x: np.ndarray) -> str:
-	"""Generate a detailed statistical summary."""
-	mean_val = float(np.mean(x))
-	median_val = float(np.median(x))
-	std_val = float(np.std(x))
-	min_val = float(np.min(x))
-	max_val = float(np.max(x))
-	q25 = float(np.percentile(x, 25))
-	q75 = float(np.percentile(x, 75))
-	length = len(x)
-
-	trend = "increasing" if x[-1] > x[0] else "decreasing"
-
-	return (
-		f"Time series of length {length}. "
-		f"Mean: {mean_val:.4f}, Median: {median_val:.4f}, Std: {std_val:.4f}. "
-		f"Range: [{min_val:.4f}, {max_val:.4f}]. "
-		f"IQR: [{q25:.4f}, {q75:.4f}]. "
-		f"Overall trend: {trend}."
+	request = LLMRequest(
+		messages=[{"role": "user", "content": user_prompt}],
+		system=system_prompt,
 	)
+
+	# print("=== LLM REQUEST ===")
+	# print(f"[system]\n{system_prompt}")
+	# print(f"[user]\n{user_prompt}")
+	# print("===================")
+
+	response = llm_client.complete(request)
+	result = response.content.strip()
+
+	# print(f"[response]\n{result}")
+	# print("===================")
+
+	# return result
 
 
 def compute_summary_for_sample(
 	sample: TimeSeriesSample,
 	channel_id: int = 0,
-	style: str = "basic",
+	context: Optional[dict[str, Any]] = None,
 ) -> str:
-	"""Generate a text summary for a single sample."""
-	return generate_text_summary(sample, channel_id=channel_id, style=style)
+	"""Generate an LLM-based text summary for a single sample."""
+	return generate_text_summary(sample, channel_id=channel_id, context=context)
 
 
 def compute_summary_for_batch(
 	samples: list[TimeSeriesSample],
 	channel_id: int = 0,
-	style: str = "basic",
+	context: Optional[dict[str, Any]] = None,
 ) -> list[str]:
-	"""Generate text summaries for a batch of samples."""
-	return [compute_summary_for_sample(sample, channel_id=channel_id, style=style) for sample in samples]
+	"""Generate LLM-based text summaries for a batch of samples."""
+	return [compute_summary_for_sample(sample, channel_id=channel_id, context=context) for sample in samples]

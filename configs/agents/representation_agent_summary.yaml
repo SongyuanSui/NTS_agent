@@ -2,4 +2,13 @@ agent:
   name: representation_agent_summary
   params:
     representation_type: summary
-    style: statistical
+    domain: "time series"       # forwarded to LLM prompt (e.g. 'weather')
+    time_step: step             # temporal granularity label (e.g. 'hour', 'day')
+    entity: ""                  # optional location/entity name for the prompt
+    channel_names: {}           # int channel_id -> display name, e.g. {0: "Temperature (K)"}
+    llm:
+      provider: qwen            # 'qwen' | 'deepseek' | 'openai'
+      base_url: "http://127.0.0.1:8000/v1"
+      model: "Qwen/Qwen3-30B-A3B-Instruct-2507"
+      temperature: 0.7
+      max_tokens: 512

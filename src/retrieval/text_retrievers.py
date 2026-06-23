@@ -4,6 +4,7 @@ import string
 from typing import Any, Callable, Optional
 
 import numpy as np
+from numpy.linalg import norm
 
 from core.enums import RepresentationType, RetrievalMode
 from core.schemas import QueryInstance
@@ -52,6 +53,19 @@ def _simple_text_vector(text: str) -> np.ndarray:
 	return np.array([counts[ch] for ch in alphabet], dtype=float)
 
 
+def _cosine_similarity(v1: np.ndarray, v2: np.ndarray) -> float:
+	"""Cosine similarity between two embedding vectors.
+
+	Ported from localLM_TimeCAP.py predict():
+	    cos_sim = np.dot(a, b) / (norm(a) * norm(b))
+	"""
+	n1 = norm(v1)
+	n2 = norm(v2)
+	if n1 == 0 or n2 == 0:
+		return 0.0
+	return float(np.dot(v1, v2) / (n1 * n2))
+
+
 _SIMILARITY_FUNCS: dict[str, SimilarityFn] = {
 	"ratio": _string_similarity_ratio,
 	"embedding": _text_embedding_similarity,
@@ -59,7 +73,14 @@ _SIMILARITY_FUNCS: dict[str, SimilarityFn] = {
 
 
 class TextSummaryRetriever(BaseRetriever):
-	"""Retriever over text summaries (SUMMARY representation)."""
+	"""Retriever over text summaries (SUMMARY representation).
+
+	Supported methods (config key 'method'):
+	  'ratio'     — character-set Jaccard similarity on summary strings
+	  'embedding' — character-frequency cosine similarity on summary strings
+	  'cosine'    — cosine similarity on pre-computed dense embeddings supplied
+	                via context['text_embeddings'] (dict[str, np.ndarray])
+	"""
 
 	def __init__(
 		self,
@@ -71,12 +92,17 @@ class TextSummaryRetriever(BaseRetriever):
 
 	def _score_impl(self, query: QueryInstance, candidate: Any) -> float:
 		method = str(self.get_config("method", "embedding"))
-		similarity_fn = self._resolve_similarity(method)
-
-		query_text = self._extract_query_text(query=query)
-		candidate_text = self._extract_candidate_text(candidate=candidate)
-
-		similarity = similarity_fn(query_text, candidate_text)
+		if method == "cosine":
+			# _score_impl has no context; fall back to string-embedding similarity
+			similarity_fn = _text_embedding_similarity
+			query_text = self._extract_query_text(query=query)
+			candidate_text = self._extract_candidate_text(candidate=candidate)
+			similarity = similarity_fn(query_text, candidate_text)
+		else:
+			similarity_fn = self._resolve_similarity(method)
+			query_text = self._extract_query_text(query=query)
+			candidate_text = self._extract_candidate_text(candidate=candidate)
+			similarity = similarity_fn(query_text, candidate_text)
 		return float(1.0 - similarity)
 
 	def _retrieve_impl(
@@ -87,8 +113,12 @@ class TextSummaryRetriever(BaseRetriever):
 		context: Optional[dict[str, Any]] = None,
 	) -> RetrievedSet:
 		method = str(self.get_config("method", "embedding"))
-		similarity_fn = self._resolve_similarity(method)
 
+		if method == "cosine":
+			return self._retrieve_by_cosine(query, memory_bank, top_k, context)
+
+		# String-similarity path (ratio / embedding)
+		similarity_fn = self._resolve_similarity(method)
 		query_text = self._extract_query_text(query=query)
 		candidates = self._collect_candidates(memory_bank=memory_bank)
 
@@ -115,6 +145,70 @@ class TextSummaryRetriever(BaseRetriever):
 		scores.sort(key=lambda x: x[0])
 		scores = scores[:top_k]
 
+		return self._build_retrieved_set(query, scores, method)
+
+	def _retrieve_by_cosine(
+		self,
+		query: QueryInstance,
+		memory_bank: Any,
+		top_k: int,
+		context: Optional[dict[str, Any]],
+	) -> RetrievedSet:
+		"""Cosine retrieval over pre-computed dense text embeddings.
+
+		Mirrors the retrieval loop in localLM_TimeCAP.py predict():
+		    sim = [-cos(text_emb[i], text_emb[indices[ii]]) for ii in idx_train]
+		    _j_list = np.argsort(sim)   # ascending → most similar first
+
+		Embeddings are read from context['text_embeddings'] (dict[str, np.ndarray]).
+		Candidates without a stored embedding are silently skipped.
+		Falls back to character-frequency cosine if the query embedding is absent.
+		"""
+		text_embeddings: dict[str, np.ndarray] = (context or {}).get("text_embeddings", {})
+		query_emb = text_embeddings.get(str(query.sample.sample_id))
+
+		candidates = self._collect_candidates(memory_bank=memory_bank)
+
+		if not candidates:
+			return RetrievedSet(
+				query_id=query.query_id,
+				examples=[],
+				retrieval_mode=RetrievalMode.TEXT.value,
+				metadata={"method": "cosine"},
+			)
+
+		if query_emb is None:
+			# No pre-computed embedding for query — fall back to string similarity
+			similarity_fn = _text_embedding_similarity
+			query_text = self._extract_query_text(query=query)
+			scores = []
+			for sample_id, text, label, channel_id, payload, metadata in candidates:
+				if sample_id == str(query.sample.sample_id):
+					continue
+				sim = similarity_fn(query_text, text)
+				scores.append((1.0 - sim, sample_id, label, channel_id, payload, metadata))
+		else:
+			scores = []
+			for sample_id, text, label, channel_id, payload, metadata in candidates:
+				if sample_id == str(query.sample.sample_id):
+					continue
+				cand_emb = text_embeddings.get(sample_id)
+				if cand_emb is None:
+					continue
+				sim = _cosine_similarity(query_emb, cand_emb)
+				scores.append((1.0 - sim, sample_id, label, channel_id, payload, metadata))
+
+		scores.sort(key=lambda x: x[0])
+		scores = scores[: min(top_k, len(scores))]
+
+		return self._build_retrieved_set(query, scores, "cosine")
+
+	def _build_retrieved_set(
+		self,
+		query: QueryInstance,
+		scores: list[tuple],
+		method: str,
+	) -> RetrievedSet:
 		examples: list[RetrievedExample] = []
 		for distance, sample_id, label, channel_id, payload, metadata in scores:
 			score = RetrievalScore(
@@ -133,14 +227,12 @@ class TextSummaryRetriever(BaseRetriever):
 					metadata=metadata,
 				)
 			)
-
 		return RetrievedSet(
 			query_id=query.query_id,
 			examples=examples,
 			retrieval_mode=RetrievalMode.TEXT.value,
 			metadata={
 				"method": method,
-				"gallery_size": len(candidates),
 				"top_k": len(examples),
 			},
 		)

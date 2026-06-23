@@ -25,19 +25,42 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--stat-distance", type=str, default="cosine")
     parser.add_argument("--stat-normalize", type=str, default="zscore")
     parser.add_argument("--feature-groups", nargs="*", default=None)
-    parser.add_argument("--summary-style", type=str, default="statistical")
+    # LLM config for text summarization
+    parser.add_argument("--llm-provider", type=str, default="qwen")
+    parser.add_argument("--llm-base-url", type=str, default="http://127.0.0.1:8000/v1")
+    parser.add_argument("--llm-model", type=str, default="Qwen/Qwen3-30B-A3B-Instruct-2507")
+    parser.add_argument("--llm-temperature", type=float, default=0.7)
+    parser.add_argument("--llm-max-tokens", type=int, default=512)
     parser.add_argument("--save-json", type=str, default=None)
     return parser
 
 
-def compute_query_metadata(sample: Any, channel_id: int, feature_groups: list[str] | None, summary_style: str) -> dict[str, Any]:
+def build_llm_context(args: argparse.Namespace) -> dict[str, Any]:
+    from core.factories import build_llm_client
+    llm_cfg = {
+        "provider": args.llm_provider,
+        "base_url": args.llm_base_url,
+        "model": args.llm_model,
+        "temperature": args.llm_temperature,
+        "max_tokens": args.llm_max_tokens,
+    }
+    return {"llm_client": build_llm_client(llm_cfg)}
+
+
+def compute_query_metadata(
+    sample: Any,
+    channel_id: int,
+    feature_groups: list[str] | None,
+    llm_context: dict[str, Any],
+) -> dict[str, Any]:
     from representations.raw_series import RawSeriesRepresentation
     from representations.statistics import StatisticsRepresentation
     from representations.text_summary import TextSummaryRepresentation
 
     ts_output = RawSeriesRepresentation().run(RepresentationInput(samples=[sample], channel_id=channel_id))
     summary_output = TextSummaryRepresentation().run(
-        RepresentationInput(samples=[sample], channel_id=channel_id, metadata={"style": summary_style})
+        RepresentationInput(samples=[sample], channel_id=channel_id),
+        context=llm_context,
     )
     stat_output = StatisticsRepresentation().run(
         RepresentationInput(samples=[sample], channel_id=channel_id, metadata={"feature_groups": feature_groups})
@@ -69,10 +92,12 @@ def main() -> None:
         max_samples_per_split=args.max_samples_per_split,
     )
 
+    llm_context = build_llm_context(args)
+
     memory_pipeline = MemoryBuildPipeline(
         components={
             "ts_representation": RawSeriesRepresentation(),
-            "summary_representation": TextSummaryRepresentation(config={"style": args.summary_style}),
+            "summary_representation": TextSummaryRepresentation(),
             "statistic_representation": StatisticsRepresentation(),
         },
         config={"task_type": TaskType.CLASSIFICATION},
@@ -82,10 +107,10 @@ def main() -> None:
         task_type=TaskType.CLASSIFICATION,
         channel_ids=[args.channel_id],
         context={
+            **llm_context,
             "representation_metadata": {
                 "statistic": {"feature_groups": args.feature_groups},
-                "summary": {"style": args.summary_style},
-            }
+            },
         },
     ).memory_bank
 
@@ -109,7 +134,7 @@ def main() -> None:
             query_id=f"query__{sample.sample_id}",
             sample=sample,
             task_spec=task_spec,
-            metadata=compute_query_metadata(sample, args.channel_id, args.feature_groups, args.summary_style),
+            metadata=compute_query_metadata(sample, args.channel_id, args.feature_groups, llm_context),
         )
         retrieved = hybrid.retrieve(query=query, memory_bank=memory, top_k=args.k)
         labels = [ex.label for ex in retrieved.examples]
