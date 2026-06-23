@@ -140,7 +140,7 @@ def _llm_channel_summary(
 	# print(f"[response]\n{result}")
 	# print("===================")
 
-	# return result
+	return result
 
 
 def compute_summary_for_sample(
