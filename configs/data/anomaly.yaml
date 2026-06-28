@@ -2,7 +2,7 @@ data:
   task_type: anomaly_window
   dataset_loader: skab_window
   dataset_name: SKAB
-  base_dir: datasets/anomaly/SKAB
+  base_dir: datasets/anomaly
   max_files: null
   subdirs: null
 

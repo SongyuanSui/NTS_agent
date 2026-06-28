@@ -160,6 +160,13 @@ class SKABAnomalyWindowLoader(SKABAnomalySequenceLoader):
                 artifact.to_window_samples(window_size=w, stride=s, rule=r, ratio_threshold=th)
             )
 
+        cap = kwargs.get("max_samples_per_split")
+        if cap is not None:
+            cap = int(cap)
+            if cap >= 0:
+                train_windows = train_windows[:cap]
+                test_windows = test_windows[:cap]
+
         for sample in train_windows:
             sample.metadata["split"] = "train"
         for sample in test_windows:

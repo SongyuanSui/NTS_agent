@@ -14,7 +14,7 @@ from common import (
     save_json,
 )
 from core.enums import TaskType
-from core.factories import build_agent, build_pipeline, build_task
+from core.factories import build_agent, build_llm_client, build_pipeline, build_task
 from pipelines.memory_build_pipeline import MemoryBuildPipeline
 from representations.statistics import compute_statistics_for_sample
 
@@ -189,6 +189,14 @@ def _build_memory_bank(
             "statistic": {"feature_groups": feature_groups},
         },
     }
+
+    llm_cfg = (
+        pipeline_cfg.get("pipeline", {})
+        .get("params", {})
+        .get("llm")
+    )
+    if isinstance(llm_cfg, dict) and llm_cfg:
+        context["llm_client"] = build_llm_client(llm_cfg)
 
     result = memory_pipeline.build_memory_bank(
         samples=bundle.train.samples,

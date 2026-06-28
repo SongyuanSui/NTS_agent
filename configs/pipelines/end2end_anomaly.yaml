@@ -1,0 +1,27 @@
+pipeline:
+  name: inference_pipeline
+  params:
+    top_k: 5
+    selected_channel_ids: null
+    llm:
+      provider: qwen
+      model: Qwen/Qwen3-14B
+      use_sglang: true
+      base_url: http://localhost:30000/v1
+      temperature: 0.0
+      max_tokens: 4096
+      retry:
+        max_attempts: 3
+        base_delay: 1.0
+        max_delay: 30.0
+
+components:
+  task: anomaly_window
+  channel_decomposer: channel_decomposer
+  retrieval_agent: retrieval_agent_ts
+  reasoner_agent: reasoner_agent
+  aggregator_agent: aggregation_agent
+
+memory:
+  build_before_inference: true
+  memory_config: configs/pipelines/memory_build.yaml

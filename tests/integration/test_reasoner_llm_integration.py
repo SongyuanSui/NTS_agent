@@ -48,11 +48,20 @@ def test_reasoner_uses_llm():
         config={'task_type': TaskType.CLASSIFICATION},
     )
 
+    # Build the LLM client up front: memory build runs TextSummaryRepresentation,
+    # which requires context['llm_client'].
+    from core.factories import build_llm_client
+    llm_cfg = pipeline_cfg.get('params', {}).get('llm', {})
+    llm_client = build_llm_client(llm_cfg)
+
     memory_bank = memory_pipeline.build_memory_bank(
         samples=bundle.train.samples,
         task_type=TaskType.CLASSIFICATION,
         channel_ids=[0],
-        context={'representation_metadata': {'summary': {'style': 'statistical'}, 'statistic': {'feature_groups': None}}},
+        context={
+            'llm_client': llm_client,
+            'representation_metadata': {'summary': {'style': 'statistical'}, 'statistic': {'feature_groups': None}},
+        },
     ).memory_bank
 
     components = {
@@ -81,11 +90,7 @@ def test_reasoner_uses_llm():
     sample = bundle.test.samples[0]
     query_stat_dict = compute_statistics_for_sample(sample, channel_id=0, feature_groups=None)
 
-    # Build an LLM client from the pipeline config and inject into context
-    from core.factories import build_llm_client
-    llm_cfg = pipeline_cfg.get('params', {}).get('llm', {})
-    llm_client = build_llm_client(llm_cfg)
-
+    # Reuse the LLM client built above (also used for memory build) and inject into context
     result = pipeline.run(sample, context={
         'memory_bank': memory_bank,
         'dataset_name': bundle.dataset_name,

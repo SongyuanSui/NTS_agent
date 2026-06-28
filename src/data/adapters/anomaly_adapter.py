@@ -148,8 +148,6 @@ def load_anomaly_sequence_artifact_from_csv(
     """
     csv_path = Path(csv_path)
     df = pd.read_csv(csv_path, sep=";")
-    if label_col not in df.columns:
-        raise KeyError(f"Missing label column '{label_col}' in {csv_path}")
 
     auto_drop = list(drop_columns or [])
     if time_col and time_col in df.columns:
@@ -164,7 +162,15 @@ def load_anomaly_sequence_artifact_from_csv(
     )
 
     x = df[feature_cols].to_numpy(dtype=float)
-    point_labels = df[label_col].to_numpy(dtype=int)
+
+    if label_col in df.columns:
+        point_labels = df[label_col].to_numpy(dtype=int)
+        label_source = "column"
+    elif "anomaly-free" in csv_path.parts:
+        point_labels = np.zeros(len(df), dtype=int)
+        label_source = "implicit_zero"
+    else:
+        raise KeyError(f"Missing label column '{label_col}' in {csv_path}")
 
     if x.ndim != 2 or x.shape[0] == 0:
         raise ValueError(f"Invalid feature shape from {csv_path}: {x.shape}")
@@ -189,6 +195,7 @@ def load_anomaly_sequence_artifact_from_csv(
             "source_file": str(csv_path),
             "split": "sequence",
             "label_type": "point",
+            "label_source": label_source,
             "feature_columns": feature_cols,
         },
     )
