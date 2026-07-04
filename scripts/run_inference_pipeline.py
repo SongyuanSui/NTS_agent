@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 from importlib import import_module
 from typing import Any
+from tqdm import tqdm
 
 from common import (
     add_dataset_args,
@@ -211,6 +212,8 @@ def _build_memory_bank(
 def main() -> None:
     args = build_parser().parse_args()
 
+    print("[inference] loading configs", flush=True)
+
     pipeline_root_cfg = load_config_stack(args.pipeline_config)
     if "pipeline" not in pipeline_root_cfg:
         raise ValueError("Pipeline config must contain top-level 'pipeline'.")
@@ -225,8 +228,10 @@ def main() -> None:
     task_name = str(components_cfg.get("task", "classification"))
     _import_for_registration(pipeline_root_cfg, task_name, list(components_cfg.values()))
 
+    print("[inference] loading task config", flush=True)
     task_cfg = _load_task_config(task_name=task_name, task_config_path=args.task_config)
 
+    print("[inference] loading dataset", flush=True)
     data_cfg = resolve_config(args.config, "configs/data/classification.yaml")
     bundle = load_dataset_from_config(
         data_cfg,
@@ -243,6 +248,7 @@ def main() -> None:
         if not task_spec_cfg.get("label_space"):
             task_spec_cfg["label_space"] = _infer_label_space_from_samples(bundle.train.samples)
 
+    print("[inference] building pipeline components", flush=True)
     components: dict[str, Any] = {
         "task": build_task(task_cfg),
     }
@@ -255,6 +261,7 @@ def main() -> None:
 
     pipeline = build_pipeline(pipeline_root_cfg["pipeline"], components=components)
 
+    print("[inference] building memory bank", flush=True)
     memory_bank, memory_meta = _build_memory_bank(
         bundle=bundle,
         task_type=task_type,
@@ -263,6 +270,7 @@ def main() -> None:
         channel_ids_override=args.channel_ids,
         skip_memory_build=bool(args.skip_memory_build),
     )
+    print("[inference] memory bank ready", flush=True)
 
     samples = list(bundle.test.samples)
     if args.max_test_samples is not None:
@@ -273,7 +281,8 @@ def main() -> None:
         selected_channel_ids = pipeline.get_config("selected_channel_ids")
 
     records: list[dict[str, Any]] = []
-    for sample in samples:
+    print(f"[inference] running {len(samples)} test samples", flush=True)
+    for sample in tqdm(samples, desc="Inference", unit="sample"):
         run_context: dict[str, Any] = {
             "dataset_name": bundle.dataset_name,
         }

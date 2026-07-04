@@ -4,6 +4,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterable, Optional
 
+from tqdm import tqdm
+
 from core.constants import (
     DEFAULT_MEMORY_BANK_FILENAME,
     DEFAULT_OUTPUTS_ROOT,
@@ -151,8 +153,22 @@ class MemoryBuildPipeline(BasePipeline):
         resolved_task_type = self._coerce_task_type(task_type)
         resolved_channel_ids = self._resolve_channel_ids(sample_list, context, channel_ids)
 
+        self.log_info(
+            context,
+            "MemoryBuildPipeline '%s': start memory build for %d samples across %d channels",
+            self.name,
+            len(sample_list),
+            len(resolved_channel_ids),
+        )
+
         memory_bank = MemoryBank(logger=self.get_logger(context))
-        for channel_id in resolved_channel_ids:
+        for channel_id in tqdm(resolved_channel_ids, desc="Memory build", unit="channel"):
+            self.log_info(
+                context,
+                "MemoryBuildPipeline '%s': building channel_id=%d",
+                self.name,
+                channel_id,
+            )
             views_by_type = self._compute_views_for_channel(
                 samples=sample_list,
                 channel_id=channel_id,
@@ -168,14 +184,34 @@ class MemoryBuildPipeline(BasePipeline):
                 )
                 memory_bank.add(entry)
 
+            self.log_info(
+                context,
+                "MemoryBuildPipeline '%s': finished channel_id=%d with %d entries",
+                self.name,
+                channel_id,
+                len(sample_list),
+            )
+
         artifacts: dict[str, str] = {}
         if bool(context.get("persist_memory", self.get_config("persist_memory", False))):
+            self.log_info(
+                context,
+                "MemoryBuildPipeline '%s': persisting memory artifacts",
+                self.name,
+            )
             artifacts = self.persist_memory_artifacts(
                 memory_bank=memory_bank,
                 task_type=resolved_task_type,
                 channel_ids=resolved_channel_ids,
                 context=context,
             )
+
+        self.log_info(
+            context,
+            "MemoryBuildPipeline '%s': finished memory build with %d memory entries",
+            self.name,
+            len(memory_bank),
+        )
 
         return MemoryBuildResult(
             memory_bank=memory_bank,
