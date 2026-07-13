@@ -1,0 +1,13 @@
+agent:
+  # Reuses the registered AggregationAgent class (see agents/aggregation_agent_anomaly.py
+  # shim, which imports it so the registry decorator runs).
+  name: aggregation_agent
+  params:
+    # SKAB window labels are shared across all channels, and per-channel
+    # detection now works, so a balanced cross-channel ensemble is right.
+    # "weighted_vote": each class scores the sum of the confidences of the
+    # channels predicting it; argmax wins (uses count + confidence, breaks ties).
+    # (any_positive/majority_vote remain available for offline comparison.)
+    aggregation_method: weighted_vote
+    positive_label: anomaly
+    confidence_strategy: mean

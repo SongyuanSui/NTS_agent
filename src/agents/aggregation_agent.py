@@ -31,6 +31,8 @@ class AggregationAgent(BaseAgent):
 		query = input_data.query
 		channel_decisions = input_data.channel_decisions
 
+		method = self._resolve_method()
+
 		if not channel_decisions:
 			return AggregationOutput(
 				query_id=query.query_id,
@@ -40,11 +42,10 @@ class AggregationAgent(BaseAgent):
 				metadata={
 					"sample_id": query.sample.sample_id,
 					"num_channels": 0,
-					"aggregation_method": self.get_config("aggregation_method", "majority_vote"),
+					"aggregation_method": method,
 				},
 			)
 
-		method = str(self.get_config("aggregation_method", "majority_vote"))
 		final_prediction, confidence, reasoning = self._aggregate_decisions(
 			channel_decisions=channel_decisions,
 			method=method,
@@ -69,6 +70,16 @@ class AggregationAgent(BaseAgent):
 			},
 		)
 
+	def _resolve_method(self) -> str:
+		"""Resolve the aggregation method name.
+
+		Accepts both `aggregation_method` (read by this class historically) and
+		`strategy` (the key used in configs/agents/*.yaml) so that config intent
+		is actually honored instead of silently falling back to the default.
+		"""
+		method = self.get_config("aggregation_method") or self.get_config("strategy")
+		return str(method) if method else "majority_vote"
+
 	def _aggregate_decisions(
 		self,
 		channel_decisions: list[Any],
@@ -83,8 +94,67 @@ class AggregationAgent(BaseAgent):
 			return self._unanimous_aggregation(channel_decisions)
 		elif method == "max_confidence":
 			return self._max_confidence_aggregation(channel_decisions)
+		elif method == "any_positive":
+			return self._any_positive_aggregation(channel_decisions)
+		elif method == "weighted_vote":
+			return self._weighted_vote_aggregation(channel_decisions)
 		else:
 			return self._majority_vote_aggregation(channel_decisions)
+
+	def _weighted_vote_aggregation(self, decisions: list[Any]) -> tuple[Any, float, str]:
+		"""Confidence-weighted vote across channels.
+
+		Each class scores the sum of the confidences of the channels predicting
+		it; the argmax wins. This uses both agreement (count) and confidence, and
+		breaks ties that plain majority voting leaves arbitrary. Suited to tasks
+		where every channel shares the sample's label (e.g. window-level anomaly).
+		"""
+		class_scores: dict[Any, float] = {}
+		for d in decisions:
+			if d.prediction is None:
+				continue
+			conf = d.confidence if d.confidence is not None else 0.5
+			class_scores[d.prediction] = class_scores.get(d.prediction, 0.0) + float(conf)
+
+		if not class_scores:
+			return None, 0.0, "All channel predictions are None"
+
+		best = max(class_scores.keys(), key=lambda c: class_scores[c])
+		total = sum(class_scores.values())
+		confidence = float(class_scores[best]) / float(total) if total > 0 else 0.0
+		reasoning = f"Weighted vote: {best} (score={class_scores[best]:.3f}/{total:.3f})"
+		return best, confidence, reasoning
+
+	def _any_positive_aggregation(self, decisions: list[Any]) -> tuple[Any, float, str]:
+		"""Flag the positive label if ANY channel predicts it.
+
+		Motivation: for anomaly detection an anomaly typically manifests in only
+		one channel, so majority voting across channels almost never fires and the
+		sample is always called normal. Here a single positive channel is enough.
+
+		Safe for non-anomaly tasks: when no channel predicts the configured
+		`positive_label`, this falls back to majority vote, so tasks whose label
+		space does not contain `positive_label` behave exactly as before.
+		"""
+		positive_label = self.get_config("positive_label", "anomaly")
+
+		valid = [d for d in decisions if d.prediction is not None]
+		if not valid:
+			return None, 0.0, "All channel predictions are None"
+
+		positive = [d for d in valid if d.prediction == positive_label]
+		if positive:
+			confidence = max(
+				(d.confidence if d.confidence is not None else 0.5) for d in positive
+			)
+			reasoning = (
+				f"Any-positive: {positive_label} "
+				f"({len(positive)}/{len(decisions)} channels flagged)"
+			)
+			return positive_label, float(confidence), reasoning
+
+		# No channel flagged the positive label -> defer to majority vote.
+		return self._majority_vote_aggregation(decisions)
 
 	def _majority_vote_aggregation(self, decisions: list[Any]) -> tuple[Any, float, str]:
 		"""Aggregate using majority voting."""
