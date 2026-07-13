@@ -2,7 +2,7 @@ pipeline:
   name: memory_build_pipeline
   params:
     task_type: classification
-    selected_channel_ids: null
+    selected_channel_ids: [0, 1, 2, 3]
     persist_memory: true
     reuse_memory: true
     force_rebuild: false

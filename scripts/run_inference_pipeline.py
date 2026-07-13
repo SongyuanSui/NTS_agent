@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 from importlib import import_module
 from typing import Any
 from tqdm import tqdm
@@ -16,6 +17,8 @@ from common import (
 )
 from core.enums import TaskType
 from core.factories import build_agent, build_llm_client, build_pipeline, build_task
+from memory.artifacts import get_memory_bank_path
+from memory.memory_store import load_memory_bank_jsonl
 from pipelines.memory_build_pipeline import MemoryBuildPipeline
 from representations.statistics import compute_statistics_for_sample
 
@@ -83,6 +86,16 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--max-test-samples", type=int, default=None)
     parser.add_argument("--skip-memory-build", action="store_true")
     parser.add_argument(
+        "--memory-bank-path",
+        type=str,
+        default=None,
+        help=(
+            "Path to a persisted memory_bank.jsonl to reuse with --skip-memory-build. "
+            "If omitted, the path is derived from the memory config "
+            "(outputs_root/memory/{dataset}_{experiment_name}/memory_bank.jsonl)."
+        ),
+    )
+    parser.add_argument(
         "--retrieval-agent-override",
         type=str,
         default=None,
@@ -132,6 +145,22 @@ def _load_agent_config(agent_name: str) -> dict[str, Any]:
     return cfg["agent"]
 
 
+def _resolve_persisted_memory_bank_path(
+    bundle: Any,
+    mem_params: dict[str, Any],
+    explicit_path: str | None,
+) -> str:
+    """Locate the persisted memory_bank.jsonl to reuse when skipping the build."""
+    if explicit_path:
+        return explicit_path
+
+    outputs_root = mem_params.get("outputs_root", "outputs")
+    experiment_name = mem_params.get("experiment_name", "memory_build")
+    dataset_name = mem_params.get("dataset_name") or bundle.dataset_name
+    run_dir = f"{outputs_root}/memory/{dataset_name}_{experiment_name}"
+    return str(get_memory_bank_path(run_dir))
+
+
 def _build_memory_bank(
     bundle: Any,
     task_type: TaskType,
@@ -139,6 +168,7 @@ def _build_memory_bank(
     memory_config_path: str | None,
     channel_ids_override: list[int] | None,
     skip_memory_build: bool,
+    memory_bank_path: str | None = None,
 ) -> tuple[Any, dict[str, Any]]:
     memory_cfg_path = memory_config_path or pipeline_cfg.get("memory", {}).get("memory_config")
     memory_cfg = load_config_stack(memory_cfg_path) if memory_cfg_path else {}
@@ -147,6 +177,23 @@ def _build_memory_bank(
     should_build = bool(pipeline_cfg.get("memory", {}).get("build_before_inference", False))
     if skip_memory_build:
         should_build = False
+
+    if skip_memory_build:
+        # Reuse a previously persisted memory bank instead of rebuilding.
+        bank_path = _resolve_persisted_memory_bank_path(bundle, mem_params, memory_bank_path)
+        if not os.path.exists(bank_path):
+            raise FileNotFoundError(
+                f"--skip-memory-build set but no persisted memory bank at '{bank_path}'. "
+                "Build it once (without --skip-memory-build) or pass --memory-bank-path."
+            )
+        print(f"[inference] reusing persisted memory bank: {bank_path}", flush=True)
+        memory_bank = load_memory_bank_jsonl(bank_path)
+        return memory_bank, {
+            "memory_built": False,
+            "memory_reused": True,
+            "memory_bank_path": bank_path,
+            "num_memory_entries": len(memory_bank.get_all()),
+        }
 
     if not should_build:
         return None, {"memory_built": False}
@@ -269,6 +316,7 @@ def main() -> None:
         memory_config_path=args.memory_config,
         channel_ids_override=args.channel_ids,
         skip_memory_build=bool(args.skip_memory_build),
+        memory_bank_path=args.memory_bank_path,
     )
     print("[inference] memory bank ready", flush=True)
 

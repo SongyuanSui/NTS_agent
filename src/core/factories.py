@@ -132,6 +132,7 @@ def build_llm_client(cfg: dict):
         model=cfg["model"],
         temperature=cfg.get("temperature", 0.0),
         max_tokens=cfg.get("max_tokens", 2048),
+        timeout=cfg.get("timeout", 60),
     )
     retry_cfg = RetryConfig(**cfg.get("retry", {}))
     provider = cfg["provider"]

@@ -27,6 +27,7 @@ llm:
   base_url: "http://localhost:30000/v1"
   temperature: 0.0
   max_tokens: 2048
+  timeout: 6000
   retry:
     max_attempts: 3
     base_delay: 1.0
