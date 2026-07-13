@@ -251,27 +251,37 @@ class InferencePipeline(BasePipeline):
             channels=selected_channels,
             top_k=top_k,
         )
-        retrieval_output = retrieval_agent.run(
-            retrieval_input,
-            context=self._build_agent_context(
-                stage="retrieval",
-                query=query,
-                sample=sample,
-                extra_context=context,
-                extras={
-                    "decomposer_output": decomposer_output,
-                    "query_ts_by_channel": {
-                        channel_id: views["ts_view"] for channel_id, views in query_views_by_channel.items()
-                    },
-                    "query_summary_by_channel": {
-                        channel_id: views["summary_view"] for channel_id, views in query_views_by_channel.items()
-                    },
-                    "query_stat_by_channel": {
-                        channel_id: views["statistic_view"] for channel_id, views in query_views_by_channel.items()
-                    },
+        retrieval_context = self._build_agent_context(
+            stage="retrieval",
+            query=query,
+            sample=sample,
+            extra_context=context,
+            extras={
+                "decomposer_output": decomposer_output,
+                "query_ts_by_channel": {
+                    channel_id: views["ts_view"] for channel_id, views in query_views_by_channel.items()
                 },
-            ),
+                "query_summary_by_channel": {
+                    channel_id: views["summary_view"] for channel_id, views in query_views_by_channel.items()
+                },
+                "query_stat_by_channel": {
+                    channel_id: views["statistic_view"] for channel_id, views in query_views_by_channel.items()
+                },
+            },
         )
+
+        # Optional, representation-agnostic retrieval scoping (e.g. restrict
+        # candidates to the query's own file/run for within-run anomaly tasks).
+        # Off by default; enabled per-task via the pipeline's `retrieval_scope`.
+        retrieval_scope = self.get_config("retrieval_scope", "global")
+        if retrieval_scope and retrieval_scope != "global":
+            from retrieval.scoping import scope_memory_bank
+
+            retrieval_context["memory_bank"] = scope_memory_bank(
+                retrieval_context.get("memory_bank"), query, retrieval_scope
+            )
+
+        retrieval_output = retrieval_agent.run(retrieval_input, context=retrieval_context)
 
         if not isinstance(retrieval_output, RetrievalOutput):
             raise TypeError(
