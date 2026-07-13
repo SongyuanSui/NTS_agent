@@ -11,8 +11,30 @@ loader_params:
   time_col: datetime
   csv_glob: "**/*.csv"
   drop_columns: null
-  train_ratio: 0.5
-  window_size: 60
-  stride: 10
+  window_size: 100
+  stride: 20
   rule: any
   ratio_threshold: 0.1
+
+  # Per-file (within-run) split: each file's timeline is cut at train_ratio into
+  # a memory region (front) and a test region (back), separated by a gap so no
+  # memory window overlaps any test window (prevents near-duplicate leakage).
+  split_mode: per_file
+  train_ratio: 0.65         # front 65% of each file -> memory. SKAB's first ~35%
+                            # is all-normal, so >0.35 pulls anomaly windows into memory;
+                            # 0.65 gives more anomaly references before balancing.
+  per_file_gap: 100         # unused buffer at the cut (>= window_size => zero overlap)
+
+  # Balance the memory so per-file normal/anomaly counts are ~1:1 (downsamples the
+  # majority normal class to the anomaly count). Prevents the vote from being
+  # biased toward normal, which was collapsing recall.
+  balance_train: true
+  balance_test: false       # keep false so test reflects the true distribution
+  # train_samples_per_file: null   # None => per-class count = minority size
+  # test_samples_per_file: null
+  # sample_seed: 42
+
+  # NOTE: leave the global cap unset for per_file, and do NOT pass
+  # --max-samples-per-split on the CLI, or later files get truncated out of the
+  # memory (the cap keeps only the first N windows in file order).
+  max_samples_per_split: null
