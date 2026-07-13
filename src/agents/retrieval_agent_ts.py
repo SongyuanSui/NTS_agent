@@ -34,7 +34,7 @@ class RetrievalAgentTS(BaseAgent):
 
 		retriever = RawSeriesRetriever(
 			name=self.name,
-			config=self.config,
+			config=self.get_config("retriever_config", self.config),
 		)
 
 		retrieved_sets: dict[int, Any] = {}

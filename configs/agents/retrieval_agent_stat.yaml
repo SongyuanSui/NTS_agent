@@ -2,5 +2,5 @@ agent:
   name: retrieval_agent_stat
   params:
     retriever_config:
-      distance: cosine
+      distance: l2 # consine; l2
       normalize: zscore
