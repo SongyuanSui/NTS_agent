@@ -53,6 +53,11 @@ class ReasonerAgent(BaseAgent):
 				method=decision_method,
 				context=context,
 			)
+			# Normalize the prediction into the task label space so downstream
+			# aggregation sees one consistent type. The LLM path emits label-space
+			# strings ("normal"/"anomaly") while the vote/top-1 fallbacks emit the
+			# raw memory labels (int 0/1); mixed types silently break aggregation.
+			decision.prediction = self._to_label_space(decision.prediction, task_spec)
 			channel_decisions.append(decision)
 
 		self.log_info(
@@ -72,6 +77,26 @@ class ReasonerAgent(BaseAgent):
 				"task_type": task_spec.task_type.value,
 			},
 		)
+
+	def _to_label_space(self, label: Any, task_spec: Any) -> Any:
+		"""Map a raw integer memory label into the task's label space.
+
+		Memory entries store labels as ints (e.g. 0/1); the reasoner's LLM path
+		emits label-space strings. This maps int labels via positional index
+		(label_space[int(label)]) so every channel prediction is one consistent
+		type. Strings and out-of-range/None values are returned unchanged.
+		"""
+		if label is None or isinstance(label, str):
+			return label
+		label_space = getattr(task_spec, "label_space", None)
+		if isinstance(label_space, (list, tuple)) and not isinstance(label, bool):
+			try:
+				idx = int(label)
+			except (TypeError, ValueError):
+				return label
+			if 0 <= idx < len(label_space):
+				return label_space[idx]
+		return label
 
 	def _make_channel_decision(
 		self,
@@ -547,6 +572,15 @@ class ReasonerAgent(BaseAgent):
 					continue
 				text_summary = self._coerce_text(text_value)
 				break
+
+		# Stat retrieval stores the statistic_view dict directly as `payload`
+		# (keys like "0_Mean"), without the {"statistic_view": ...} wrapper the
+		# branches above look for. Recognize a bare numeric feature dict as stats
+		# so neighbor content is not silently dropped.
+		if not stats and isinstance(payload, dict) and payload:
+			numeric = {k: v for k, v in payload.items() if isinstance(v, (int, float))}
+			if numeric:
+				stats = numeric
 
 		return raw_series, text_summary, stats
 
